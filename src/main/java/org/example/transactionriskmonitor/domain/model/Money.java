@@ -1,4 +1,4 @@
-package domain.model;
+package org.example.transactionriskmonitor.domain.model;
 
 import java.math.BigDecimal;
 import java.util.Currency;

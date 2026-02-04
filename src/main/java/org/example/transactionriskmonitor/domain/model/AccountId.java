@@ -1,4 +1,4 @@
-package domain.model;
+package org.example.transactionriskmonitor.domain.model;
 
 public record AccountId(String value) {
     public AccountId {
