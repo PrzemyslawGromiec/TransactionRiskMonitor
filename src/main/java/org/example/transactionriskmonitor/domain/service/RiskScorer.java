@@ -12,6 +12,14 @@ public final class RiskScorer {
     private static final BigDecimal HIGH_AMOUNT = new BigDecimal("5000");
     private static final int HIGH_RISK_THRESHOLD = 85;
 
+    /*
+     * A transaction is evaluated within the context of an AccountProfile.
+     * The RiskScore is derived by combining transaction signals
+     * with account characteristics.
+     * Transaction → what happened
+     * AccountProfile → who the account is
+     */
+
     public RiskScore score(Transaction tx, AccountProfile profile) {
         EnumSet<RiskReason> reasons = EnumSet.noneOf(RiskReason.class);
         int score = 0;
