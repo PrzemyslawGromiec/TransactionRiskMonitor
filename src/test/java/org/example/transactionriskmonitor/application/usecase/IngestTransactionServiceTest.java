@@ -8,6 +8,7 @@ import org.example.transactionriskmonitor.domain.model.*;
 import org.example.transactionriskmonitor.domain.service.RiskScorer;
 import org.junit.jupiter.api.Test;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -30,7 +31,7 @@ class IngestTransactionServiceTest {
         //marking transaction as already exists
         repo.markExist(new TransactionId("tx-1"));
 
-        var service = new IngestTransactionService(repo, profilePort, lowVelocity(), alerts, new RiskScorer());
+        var service = new IngestTransactionService(repo, profilePort, lowVelocity(), normalLocation(), alerts, new RiskScorer());
 
         var cmd = new IngestTransactionCommand(
                 "tx-1", "acc-1", "100.00", "GBP", "GB",
@@ -55,7 +56,7 @@ class IngestTransactionServiceTest {
 
         var alerts = new RecordingAlertPublisherReport();
 
-        var service = new IngestTransactionService(repo, profilePort, lowVelocity(), alerts, new RiskScorer());
+        var service = new IngestTransactionService(repo, profilePort, lowVelocity(), normalLocation(), alerts, new RiskScorer());
 
         var cmd = new IngestTransactionCommand(
                 "tx-2", "acc-2", "50.00", "GBP", "GB",
@@ -80,7 +81,7 @@ class IngestTransactionServiceTest {
 
         var alerts = new RecordingAlertPublisherReport();
 
-        var service = new IngestTransactionService(repo, profilePort, lowVelocity(), alerts, new RiskScorer());
+        var service = new IngestTransactionService(repo, profilePort, lowVelocity(), normalLocation(), alerts, new RiskScorer());
 
         var cmd = new IngestTransactionCommand(
                 "tx-3", "acc-3", "9000.0", "GBP", "GB",
@@ -127,7 +128,7 @@ class IngestTransactionServiceTest {
         );
 
         IngestTransactionService service = new IngestTransactionService(
-                repo, profiles,lowVelocity(), publisher, new RiskScorer()
+                repo, profiles,lowVelocity(), normalLocation(), publisher, new RiskScorer()
         );
 
         IngestTransactionCommand cmd = new IngestTransactionCommand(
@@ -169,7 +170,7 @@ class IngestTransactionServiceTest {
                 TrustStatus.FLAGGED
         );
 
-        var service = new IngestTransactionService(repo, profiles,lowVelocity(), publisher, new RiskScorer());
+        var service = new IngestTransactionService(repo, profiles,lowVelocity(), normalLocation(), publisher, new RiskScorer());
 
         var cmd = new IngestTransactionCommand(
                 "tx-777", "acc-777", "9000.00", "GBP", "GB",
@@ -266,4 +267,22 @@ class IngestTransactionServiceTest {
                 new Money(java.math.BigDecimal.ZERO, java.util.Currency.getInstance("GBP"))
         ));
     }
+
+    private static final class StubLocationHistoryPort implements LocationHistoryPort {
+        private final LocationChange change;
+
+        private StubLocationHistoryPort(LocationChange change) {
+            this.change = change;
+        }
+
+        @Override
+        public LocationChange observe(AccountId accountId, Instant occurredAt, Country currentCountry) {
+            return change;
+        }
+    }
+
+    private static LocationHistoryPort normalLocation() {
+        return new StubLocationHistoryPort(new LocationChange(false, null, Duration.ZERO));
+    }
+
 }

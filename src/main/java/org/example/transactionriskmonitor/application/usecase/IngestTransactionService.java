@@ -11,26 +11,27 @@ import org.example.transactionriskmonitor.domain.service.RiskScorer;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.Currency;
-import java.util.EnumSet;
 
 public final class IngestTransactionService implements IngestTransactionUseCase {
     private static final int HIGH_RISK_THRESHOLD = 80;
     private final TransactionRepositoryPort txRepo;
     private final AccountProfilePort profilePort;
     private final VelocityPort velocityPort;
+    private final LocationHistoryPort locationHistoryPort;
     private final AlertPublisherPort alertPublisher;
     private final RiskScorer riskScorer;
 
     public IngestTransactionService(
             TransactionRepositoryPort txRepo,
             AccountProfilePort profilePort,
-            VelocityPort velocityPort,
+            VelocityPort velocityPort, LocationHistoryPort locationHistoryPort,
             AlertPublisherPort alertPublisher,
             RiskScorer riskScorer
     ) {
         this.txRepo = txRepo;
         this.profilePort = profilePort;
         this.velocityPort = velocityPort;
+        this.locationHistoryPort = locationHistoryPort;
         this.alertPublisher = alertPublisher;
         this.riskScorer = riskScorer;
     }
@@ -49,21 +50,21 @@ public final class IngestTransactionService implements IngestTransactionUseCase 
 
         Transaction tx = new Transaction(txId, accountId, money, country, occurredAt);
         AccountProfile profile = profilePort.load(accountId);
+        LocationChange locationChange = locationHistoryPort.observe(accountId, occurredAt, country);
         VelocityStats velocity = velocityPort.observe(accountId, occurredAt, money);
-        RiskScore score = riskScorer.score(tx, profile, velocity);
-        txRepo.save(tx, score);
+        RiskAssessment assessment = riskScorer.score(tx, profile, velocity, locationChange);
+        txRepo.save(tx, assessment.riskScore());
 
-        if (score.value() >= HIGH_RISK_THRESHOLD) {
-            EnumSet<RiskReason> reasons = EnumSet.noneOf(RiskReason.class);
+        if (assessment.riskScore().value() >= HIGH_RISK_THRESHOLD) {
             HighRiskAlert alert = new HighRiskAlert(
                     txId,
                     accountId,
-                    score,
-                    reasons,
+                    assessment.riskScore(),
+                    assessment.reasons(),
                     occurredAt
             );
             alertPublisher.publish(alert);
         }
-        return new IngestResult.Accepted(txId.value(), score);
+        return new IngestResult.Accepted(txId.value(), assessment.riskScore());
     }
 }

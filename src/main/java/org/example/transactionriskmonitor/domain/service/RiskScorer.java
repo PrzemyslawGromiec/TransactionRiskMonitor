@@ -1,7 +1,9 @@
 package org.example.transactionriskmonitor.domain.service;
 
+import org.example.transactionriskmonitor.application.port.out.LocationChange;
 import org.example.transactionriskmonitor.application.port.out.VelocityStats;
 import org.example.transactionriskmonitor.domain.model.AccountProfile;
+import org.example.transactionriskmonitor.domain.model.RiskAssessment;
 import org.example.transactionriskmonitor.domain.model.RiskReason;
 import org.example.transactionriskmonitor.domain.model.RiskScore;
 import org.example.transactionriskmonitor.domain.model.Transaction;
@@ -11,7 +13,7 @@ import java.util.EnumSet;
 
 public final class RiskScorer {
     private static final BigDecimal HIGH_AMOUNT = new BigDecimal("5000");
-    private static final int HIGH_RISK_THRESHOLD = 85;
+    private static final int HIGH_RISK_THRESHOLD = 80;
 
     /*
      * A transaction is evaluated within the context of an AccountProfile.
@@ -26,7 +28,7 @@ public final class RiskScorer {
     * add reason HIGH_VELOCITY and increase score
     */
 
-    public RiskScore score(Transaction tx, AccountProfile profile, VelocityStats velocity) {
+    public RiskAssessment score(Transaction tx, AccountProfile profile, VelocityStats velocity, LocationChange locationChange) {
         if (tx == null || profile == null) {
             throw new IllegalArgumentException("Transaction or account profile not exist");
         }
@@ -49,9 +51,14 @@ public final class RiskScorer {
             reasons.add(RiskReason.HIGH_RISK_COUNTRY);
         }
 
-        if (velocity.countInWindow() >= 5) {
+        if (velocity != null && velocity.countInWindow() >= 5) {
             score += 25;
             reasons.add(RiskReason.HIGH_VELOCITY);
+        }
+
+        if (locationChange != null && locationChange.suspicious()) {
+            score += 25;
+            reasons.add(RiskReason.IMPOSSIBLE_TRAVEL);
         }
 
         switch (profile.trustStatus()) {
@@ -66,7 +73,7 @@ public final class RiskScorer {
         }
 
         score = Math.max(0, Math.min(score, 100));
-        return new RiskScore(score);
+        return new RiskAssessment(new RiskScore(score), reasons);
     }
 
     public boolean isHighRisk(RiskScore score) {
