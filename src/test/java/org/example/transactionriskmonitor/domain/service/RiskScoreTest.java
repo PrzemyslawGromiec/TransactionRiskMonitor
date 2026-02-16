@@ -1,5 +1,6 @@
 package org.example.transactionriskmonitor.domain.service;
 
+import org.example.transactionriskmonitor.application.port.out.VelocityStats;
 import org.example.transactionriskmonitor.domain.model.*;
 import org.junit.jupiter.api.Test;
 
@@ -29,7 +30,7 @@ class RiskScoreTest {
                 Instant.parse("2026-02-03T12:00:00Z")
         );
 
-        RiskScore score = scorer.score(tx, profile);
+        RiskScore score = scorer.score(tx, profile, normalVelocity());
 
         assertTrue(score.value() >= 80, "Expected high risk score");
         assertTrue(scorer.isHighRisk(score));
@@ -51,9 +52,24 @@ class RiskScoreTest {
                 Instant.now()
         );
 
-        RiskScore score = scorer.score(tx, profile);
+        RiskScore score = scorer.score(tx, profile, normalVelocity());
 
         assertTrue(score.value() < 80);
         assertFalse(scorer.isHighRisk(score));
     }
+
+    private VelocityStats normalVelocity() {
+        return new VelocityStats(
+                1,
+                new Money(BigDecimal.ZERO, Currency.getInstance("GBP"))
+        );
+    }
+
+    private VelocityStats highVelocity() {
+        return new VelocityStats(
+                10,
+                new Money(new BigDecimal("10000"), Currency.getInstance("GBP"))
+        );
+    }
+
 }

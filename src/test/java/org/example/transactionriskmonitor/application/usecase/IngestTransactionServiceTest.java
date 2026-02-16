@@ -2,9 +2,7 @@ package org.example.transactionriskmonitor.application.usecase;
 
 import org.example.transactionriskmonitor.application.port.in.IngestResult;
 import org.example.transactionriskmonitor.application.port.in.IngestTransactionCommand;
-import org.example.transactionriskmonitor.application.port.out.AccountProfilePort;
-import org.example.transactionriskmonitor.application.port.out.AlertPublisherPort;
-import org.example.transactionriskmonitor.application.port.out.TransactionRepositoryPort;
+import org.example.transactionriskmonitor.application.port.out.*;
 import org.example.transactionriskmonitor.domain.event.HighRiskAlert;
 import org.example.transactionriskmonitor.domain.model.*;
 import org.example.transactionriskmonitor.domain.service.RiskScorer;
@@ -32,7 +30,7 @@ class IngestTransactionServiceTest {
         //marking transaction as already exists
         repo.markExist(new TransactionId("tx-1"));
 
-        var service = new IngestTransactionService(repo, profilePort, alerts, new RiskScorer());
+        var service = new IngestTransactionService(repo, profilePort, lowVelocity(), alerts, new RiskScorer());
 
         var cmd = new IngestTransactionCommand(
                 "tx-1", "acc-1", "100.00", "GBP", "GB",
@@ -57,7 +55,7 @@ class IngestTransactionServiceTest {
 
         var alerts = new RecordingAlertPublisherReport();
 
-        var service = new IngestTransactionService(repo, profilePort, alerts, new RiskScorer());
+        var service = new IngestTransactionService(repo, profilePort, lowVelocity(), alerts, new RiskScorer());
 
         var cmd = new IngestTransactionCommand(
                 "tx-2", "acc-2", "50.00", "GBP", "GB",
@@ -82,7 +80,7 @@ class IngestTransactionServiceTest {
 
         var alerts = new RecordingAlertPublisherReport();
 
-        var service = new IngestTransactionService(repo, profilePort, alerts, new RiskScorer());
+        var service = new IngestTransactionService(repo, profilePort, lowVelocity(), alerts, new RiskScorer());
 
         var cmd = new IngestTransactionCommand(
                 "tx-3", "acc-3", "9000.0", "GBP", "GB",
@@ -129,7 +127,7 @@ class IngestTransactionServiceTest {
         );
 
         IngestTransactionService service = new IngestTransactionService(
-                repo, profiles, publisher, new RiskScorer()
+                repo, profiles,lowVelocity(), publisher, new RiskScorer()
         );
 
         IngestTransactionCommand cmd = new IngestTransactionCommand(
@@ -171,7 +169,7 @@ class IngestTransactionServiceTest {
                 TrustStatus.FLAGGED
         );
 
-        var service = new IngestTransactionService(repo, profiles, publisher, new RiskScorer());
+        var service = new IngestTransactionService(repo, profiles,lowVelocity(), publisher, new RiskScorer());
 
         var cmd = new IngestTransactionCommand(
                 "tx-777", "acc-777", "9000.00", "GBP", "GB",
@@ -247,5 +245,25 @@ class IngestTransactionServiceTest {
             }
             return publishedAlerts.get(publishedAlerts.size() - 1);
         }
+    }
+
+    private static final class StubVelocityPort implements VelocityPort {
+        private final VelocityStats stats;
+
+        private StubVelocityPort(VelocityStats stats) {
+            this.stats = stats;
+        }
+
+        @Override
+        public VelocityStats observe(AccountId accountId, Instant occurredAt, Money amount) {
+            return stats;
+        }
+    }
+
+    private static VelocityPort lowVelocity() {
+        return new StubVelocityPort(new VelocityStats(
+                1,
+                new Money(java.math.BigDecimal.ZERO, java.util.Currency.getInstance("GBP"))
+        ));
     }
 }

@@ -13,4 +13,15 @@ public record Money(BigDecimal amount, Currency currency) {
         }
         amount = amount.stripTrailingZeros();
     }
+
+    public static Money zero(Currency currency) {
+        return new Money(BigDecimal.ZERO, currency);
+    }
+
+    public Money plus(Money other) {
+        if (!currency.equals(other.currency))
+            throw new IllegalArgumentException("Currency mismatch");
+
+        return new Money(amount.add(other.amount), currency);
+    }
 }

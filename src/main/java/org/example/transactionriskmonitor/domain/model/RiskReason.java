@@ -5,5 +5,6 @@ public enum RiskReason {
     NEW_ACCOUNT,
     HIGH_RISK_COUNTRY,
     FLAGGED_ACCOUNT,
-    TRUSTED_ACCOUNT
+    TRUSTED_ACCOUNT,
+    HIGH_VELOCITY
 }

@@ -1,5 +1,6 @@
 package org.example.transactionriskmonitor.domain.service;
 
+import org.example.transactionriskmonitor.application.port.out.VelocityStats;
 import org.example.transactionriskmonitor.domain.model.AccountProfile;
 import org.example.transactionriskmonitor.domain.model.RiskReason;
 import org.example.transactionriskmonitor.domain.model.RiskScore;
@@ -20,7 +21,16 @@ public final class RiskScorer {
      * AccountProfile → who the account is
      */
 
-    public RiskScore score(Transaction tx, AccountProfile profile) {
+    /*
+    * When ingesting transaction, if the same account has >= N transactions within T minutes
+    * add reason HIGH_VELOCITY and increase score
+    */
+
+    public RiskScore score(Transaction tx, AccountProfile profile, VelocityStats velocity) {
+        if (tx == null || profile == null) {
+            throw new IllegalArgumentException("Transaction or account profile not exist");
+        }
+
         EnumSet<RiskReason> reasons = EnumSet.noneOf(RiskReason.class);
         int score = 0;
 
@@ -37,6 +47,11 @@ public final class RiskScorer {
         if (profile.isCountryHighRisk(tx.country())) {
             score += 20;
             reasons.add(RiskReason.HIGH_RISK_COUNTRY);
+        }
+
+        if (velocity.countInWindow() >= 5) {
+            score += 25;
+            reasons.add(RiskReason.HIGH_VELOCITY);
         }
 
         switch (profile.trustStatus()) {

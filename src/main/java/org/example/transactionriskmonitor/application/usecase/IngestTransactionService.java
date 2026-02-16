@@ -3,9 +3,7 @@ package org.example.transactionriskmonitor.application.usecase;
 import org.example.transactionriskmonitor.application.port.in.IngestResult;
 import org.example.transactionriskmonitor.application.port.in.IngestTransactionCommand;
 import org.example.transactionriskmonitor.application.port.in.IngestTransactionUseCase;
-import org.example.transactionriskmonitor.application.port.out.AccountProfilePort;
-import org.example.transactionriskmonitor.application.port.out.AlertPublisherPort;
-import org.example.transactionriskmonitor.application.port.out.TransactionRepositoryPort;
+import org.example.transactionriskmonitor.application.port.out.*;
 import org.example.transactionriskmonitor.domain.event.HighRiskAlert;
 import org.example.transactionriskmonitor.domain.model.*;
 import org.example.transactionriskmonitor.domain.service.RiskScorer;
@@ -19,17 +17,20 @@ public final class IngestTransactionService implements IngestTransactionUseCase 
     private static final int HIGH_RISK_THRESHOLD = 80;
     private final TransactionRepositoryPort txRepo;
     private final AccountProfilePort profilePort;
+    private final VelocityPort velocityPort;
     private final AlertPublisherPort alertPublisher;
     private final RiskScorer riskScorer;
 
     public IngestTransactionService(
             TransactionRepositoryPort txRepo,
             AccountProfilePort profilePort,
+            VelocityPort velocityPort,
             AlertPublisherPort alertPublisher,
             RiskScorer riskScorer
     ) {
         this.txRepo = txRepo;
         this.profilePort = profilePort;
+        this.velocityPort = velocityPort;
         this.alertPublisher = alertPublisher;
         this.riskScorer = riskScorer;
     }
@@ -48,7 +49,8 @@ public final class IngestTransactionService implements IngestTransactionUseCase 
 
         Transaction tx = new Transaction(txId, accountId, money, country, occurredAt);
         AccountProfile profile = profilePort.load(accountId);
-        RiskScore score = riskScorer.score(tx, profile);
+        VelocityStats velocity = velocityPort.observe(accountId, occurredAt, money);
+        RiskScore score = riskScorer.score(tx, profile, velocity);
         txRepo.save(tx, score);
 
         if (score.value() >= HIGH_RISK_THRESHOLD) {
