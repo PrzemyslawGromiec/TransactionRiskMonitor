@@ -1,4 +1,4 @@
-package org.example.transactionriskmonitor.application.adapter;
+package org.example.transactionriskmonitor.application.adapter.out;
 
 import org.example.transactionriskmonitor.application.port.out.VelocityPort;
 import org.example.transactionriskmonitor.application.port.out.VelocityStats;
