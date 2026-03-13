@@ -15,6 +15,7 @@ import org.example.transactionriskmonitor.domain.model.Country;
 import org.example.transactionriskmonitor.domain.model.TrustStatus;
 import org.example.transactionriskmonitor.domain.service.RiskScorer;
 
+import java.time.Duration;
 import java.util.Set;
 
 public class AppRunner {
@@ -31,9 +32,8 @@ public class AppRunner {
                 )
         );
 
-
-        VelocityPort velocityPort = new InMemoryVelocityAdapter(java.time.Duration.ofMinutes(5));
-        LocationHistoryPort locationPort = new InMemoryLocationHistoryAdapter(java.time.Duration.ofMinutes(10));
+        VelocityPort velocityPort = new InMemoryVelocityAdapter(Duration.ofMinutes(5));
+        LocationHistoryPort locationPort = new InMemoryLocationHistoryAdapter(Duration.ofMinutes(10));
         AlertPublisherPort alertPublisher = new ConsoleAlertPublisher();
 
         RiskScorer riskScorer = new RiskScorer();
@@ -54,7 +54,7 @@ public class AppRunner {
                 "acc-1",
                 "9000.00",
                 "GBP",
-                "GB",
+                "IR",
                 now
         );
 

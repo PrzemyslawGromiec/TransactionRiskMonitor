@@ -39,7 +39,5 @@ public final class InMemoryVelocityAdapter implements VelocityPort {
         return new VelocityStats(txTickDeque.size(), sum);
     }
 
-    public record TxTick(Instant occurredAt, Money amount) {
-
-    }
+    public record TxTick(Instant occurredAt, Money amount) {}
 }

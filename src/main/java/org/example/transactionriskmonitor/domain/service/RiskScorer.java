@@ -13,6 +13,7 @@ import java.util.EnumSet;
 
 public final class RiskScorer {
     private static final BigDecimal HIGH_AMOUNT = new BigDecimal("5000");
+    private static final BigDecimal VELOCITY_AMOUNT_THRESHOLD = new BigDecimal("3000");
     private static final int HIGH_RISK_THRESHOLD = 80;
 
     /*
@@ -51,7 +52,7 @@ public final class RiskScorer {
             reasons.add(RiskReason.HIGH_RISK_COUNTRY);
         }
 
-        if (velocity != null && velocity.countInWindow() >= 5) {
+        if (isHighVelocity(velocity)) {
             score += 25;
             reasons.add(RiskReason.HIGH_VELOCITY);
         }
@@ -78,5 +79,15 @@ public final class RiskScorer {
 
     public boolean isHighRisk(RiskScore score) {
         return score.value() >= HIGH_RISK_THRESHOLD;
+    }
+
+    private boolean isHighVelocity(VelocityStats velocity) {
+        if (velocity == null) {
+            return false;
+        }
+
+        boolean manyTransactions = velocity.countInWindow() >= 5;
+        boolean largeVelocityAmount = velocity.sumInWindow().amount().compareTo(VELOCITY_AMOUNT_THRESHOLD) >= 0;
+        return manyTransactions || largeVelocityAmount;
     }
 }
