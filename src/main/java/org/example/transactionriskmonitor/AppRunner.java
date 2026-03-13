@@ -52,6 +52,7 @@ public class AppRunner {
         IngestTransactionCommand tx1 = new IngestTransactionCommand(
                 "tx-1",
                 "acc-1",
+                "amazon",
                 "9000.00",
                 "GBP",
                 "IR",
@@ -61,6 +62,7 @@ public class AppRunner {
         IngestTransactionCommand tx2 = new IngestTransactionCommand(
                 "tx-2",
                 "acc-1",
+                "amazon",
                 "9000.00",
                 "GBP",
                 "US",   // different country shortly after
@@ -70,6 +72,7 @@ public class AppRunner {
         IngestTransactionCommand tx3 = new IngestTransactionCommand(
                 "tx-3",
                 "acc-1",
+                "amazon",
                 "9000.00",
                 "GBP",
                 "GB",

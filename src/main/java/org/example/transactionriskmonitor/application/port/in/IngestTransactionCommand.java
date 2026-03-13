@@ -5,6 +5,7 @@ import java.time.Instant;
 public record IngestTransactionCommand(
     String transactionId,
     String accountId,
+    String merchantId,
     String amount,
     String currency,
     String country,

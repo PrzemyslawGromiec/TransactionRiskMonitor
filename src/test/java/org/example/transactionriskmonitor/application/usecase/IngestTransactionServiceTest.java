@@ -8,6 +8,7 @@ import org.example.transactionriskmonitor.domain.model.*;
 import org.example.transactionriskmonitor.domain.service.RiskScorer;
 import org.junit.jupiter.api.Test;
 
+import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.*;
@@ -34,7 +35,12 @@ class IngestTransactionServiceTest {
         var service = new IngestTransactionService(repo, profilePort, lowVelocity(), normalLocation(), alerts, new RiskScorer());
 
         var cmd = new IngestTransactionCommand(
-                "tx-1", "acc-1", "100.00", "GBP", "GB",
+                "tx-1",
+                "acc-1",
+                "amazon",
+                "100.00",
+                "GBP",
+                "GB",
                 Instant.parse("2026-02-03T12:00:00Z")
         );
 
@@ -59,7 +65,12 @@ class IngestTransactionServiceTest {
         var service = new IngestTransactionService(repo, profilePort, lowVelocity(), normalLocation(), alerts, new RiskScorer());
 
         var cmd = new IngestTransactionCommand(
-                "tx-2", "acc-2", "50.00", "GBP", "GB",
+                "tx-2",
+                "acc-2",
+                "amazon",
+                "50.00",
+                "GBP",
+                "GB",
                 Instant.parse("2026-02-03T12:01:00Z")
         );
 
@@ -84,7 +95,12 @@ class IngestTransactionServiceTest {
         var service = new IngestTransactionService(repo, profilePort, lowVelocity(), normalLocation(), alerts, new RiskScorer());
 
         var cmd = new IngestTransactionCommand(
-                "tx-3", "acc-3", "9000.0", "GBP", "GB",
+                "tx-3",
+                "acc-3",
+                "amazon",
+                "9000.0",
+                "GBP",
+                "GB",
                 Instant.parse("2026-02-03T12:02:00Z")
         );
 
@@ -134,6 +150,7 @@ class IngestTransactionServiceTest {
         IngestTransactionCommand cmd = new IngestTransactionCommand(
                 "tx-100",
                 "acc-100",
+                "amazon",
                 "9000.00",
                 "GBP",
                 "GB",
@@ -173,7 +190,12 @@ class IngestTransactionServiceTest {
         var service = new IngestTransactionService(repo, profiles,lowVelocity(), normalLocation(), publisher, new RiskScorer());
 
         var cmd = new IngestTransactionCommand(
-                "tx-777", "acc-777", "9000.00", "GBP", "GB",
+                "tx-777",
+                "acc-777",
+                "amazon",
+                "9000.00",
+                "GBP",
+                "GB",
                 Instant.parse("2026-02-03T12:20:00Z")
         );
 
@@ -184,8 +206,6 @@ class IngestTransactionServiceTest {
         assertInstanceOf(IngestResult.Duplicated.class, second);
         assertEquals(1, published.size(), "Alert must be published only once");
     }
-
-
 
     //In memory fake repository useful for unit test
     private static final class InMemoryTransactionRepository implements TransactionRepositoryPort {
@@ -256,7 +276,7 @@ class IngestTransactionServiceTest {
         }
 
         @Override
-        public VelocityStats observe(AccountId accountId, Instant occurredAt, Money amount) {
+        public VelocityStats observe(AccountId accountId, Instant occurredAt, Money amount, MerchantId merchantId) {
             return stats;
         }
     }
@@ -264,7 +284,8 @@ class IngestTransactionServiceTest {
     private static VelocityPort lowVelocity() {
         return new StubVelocityPort(new VelocityStats(
                 1,
-                new Money(java.math.BigDecimal.ZERO, java.util.Currency.getInstance("GBP"))
+                new Money(BigDecimal.ZERO, java.util.Currency.getInstance("GBP")),
+                1
         ));
     }
 

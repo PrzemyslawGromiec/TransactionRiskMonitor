@@ -14,6 +14,7 @@ import java.util.EnumSet;
 public final class RiskScorer {
     private static final BigDecimal HIGH_AMOUNT = new BigDecimal("5000");
     private static final BigDecimal VELOCITY_AMOUNT_THRESHOLD = new BigDecimal("3000");
+    private static final int DISTINCT_MERCHANT_THRESHOLD = 4;
     private static final int HIGH_RISK_THRESHOLD = 80;
 
     /*
@@ -88,6 +89,9 @@ public final class RiskScorer {
 
         boolean manyTransactions = velocity.countInWindow() >= 5;
         boolean largeVelocityAmount = velocity.sumInWindow().amount().compareTo(VELOCITY_AMOUNT_THRESHOLD) >= 0;
-        return manyTransactions || largeVelocityAmount;
+        boolean manyDistinctMerchants =
+                velocity.distinctMerchantsInWindow() >= DISTINCT_MERCHANT_THRESHOLD;
+
+        return manyTransactions || largeVelocityAmount || manyDistinctMerchants;
     }
 }

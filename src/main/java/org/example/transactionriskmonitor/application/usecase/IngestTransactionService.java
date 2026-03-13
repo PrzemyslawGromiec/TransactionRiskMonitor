@@ -40,6 +40,7 @@ public final class IngestTransactionService implements IngestTransactionUseCase 
     public IngestResult ingest(IngestTransactionCommand cmd) {
         TransactionId txId = new TransactionId(cmd.transactionId());
         AccountId accountId = new AccountId(cmd.accountId());
+        MerchantId merchantId = new MerchantId(cmd.merchantId());
         Country country = new Country(cmd.country());
         Money money = new Money(new BigDecimal(cmd.amount()), Currency.getInstance(cmd.currency()));
         Instant occurredAt = cmd.occurredAt();
@@ -48,10 +49,10 @@ public final class IngestTransactionService implements IngestTransactionUseCase 
             return new IngestResult.Duplicated(txId.value());
         }
 
-        Transaction tx = new Transaction(txId, accountId, money, country, occurredAt);
+        Transaction tx = new Transaction(txId, accountId, merchantId, money, country, occurredAt);
         AccountProfile profile = profilePort.load(accountId);
         LocationChange locationChange = locationHistoryPort.observe(accountId, occurredAt, country);
-        VelocityStats velocity = velocityPort.observe(accountId, occurredAt, money);
+        VelocityStats velocity = velocityPort.observe(accountId, occurredAt, money, tx.merchantId());
         RiskAssessment assessment = riskScorer.score(tx, profile, velocity, locationChange);
         txRepo.save(tx, assessment.riskScore());
 
