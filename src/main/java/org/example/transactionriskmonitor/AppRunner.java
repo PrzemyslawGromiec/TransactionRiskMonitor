@@ -1,10 +1,6 @@
 package org.example.transactionriskmonitor;
 
-import org.example.transactionriskmonitor.application.adapter.out.InMemoryLocationHistoryAdapter;
-import org.example.transactionriskmonitor.application.adapter.out.InMemoryVelocityAdapter;
-import org.example.transactionriskmonitor.application.adapter.out.ConsoleAlertPublisher;
-import org.example.transactionriskmonitor.application.adapter.out.InMemoryAccountProfileAdapter;
-import org.example.transactionriskmonitor.application.adapter.out.InMemoryTransactionRepository;
+import org.example.transactionriskmonitor.application.adapter.out.*;
 import org.example.transactionriskmonitor.application.port.in.IngestTransactionCommand;
 import org.example.transactionriskmonitor.application.port.in.IngestTransactionUseCase;
 import org.example.transactionriskmonitor.application.port.out.*;
@@ -21,6 +17,7 @@ import java.util.Set;
 public class AppRunner {
     public static void main(String[] args) {
         TransactionRepositoryPort txRepo = new InMemoryTransactionRepository();
+        MerchantHistoryPort merchantHistoryPort = new InMemoryMerchantHistoryAdapter();
         InMemoryAccountProfileAdapter profileAdapter = new InMemoryAccountProfileAdapter();
 
         profileAdapter.put(
@@ -43,6 +40,7 @@ public class AppRunner {
                 profileAdapter,
                 velocityPort,
                 locationPort,
+                merchantHistoryPort,
                 alertPublisher,
                 riskScorer
         );

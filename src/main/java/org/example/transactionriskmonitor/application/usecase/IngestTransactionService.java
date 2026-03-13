@@ -18,13 +18,16 @@ public final class IngestTransactionService implements IngestTransactionUseCase 
     private final AccountProfilePort profilePort;
     private final VelocityPort velocityPort;
     private final LocationHistoryPort locationHistoryPort;
+    private final MerchantHistoryPort merchantHistoryPort;
     private final AlertPublisherPort alertPublisher;
     private final RiskScorer riskScorer;
 
     public IngestTransactionService(
             TransactionRepositoryPort txRepo,
             AccountProfilePort profilePort,
-            VelocityPort velocityPort, LocationHistoryPort locationHistoryPort,
+            VelocityPort velocityPort,
+            LocationHistoryPort locationHistoryPort,
+            MerchantHistoryPort merchantHistoryPort,
             AlertPublisherPort alertPublisher,
             RiskScorer riskScorer
     ) {
@@ -32,6 +35,7 @@ public final class IngestTransactionService implements IngestTransactionUseCase 
         this.profilePort = profilePort;
         this.velocityPort = velocityPort;
         this.locationHistoryPort = locationHistoryPort;
+        this.merchantHistoryPort = merchantHistoryPort;
         this.alertPublisher = alertPublisher;
         this.riskScorer = riskScorer;
     }
@@ -50,10 +54,11 @@ public final class IngestTransactionService implements IngestTransactionUseCase 
         }
 
         Transaction tx = new Transaction(txId, accountId, merchantId, money, country, occurredAt);
+        boolean firstTimeMerchant = merchantHistoryPort.isFirstTimeMerchant(accountId, merchantId);
         AccountProfile profile = profilePort.load(accountId);
         LocationChange locationChange = locationHistoryPort.observe(accountId, occurredAt, country);
         VelocityStats velocity = velocityPort.observe(accountId, occurredAt, money, tx.merchantId());
-        RiskAssessment assessment = riskScorer.score(tx, profile, velocity, locationChange);
+        RiskAssessment assessment = riskScorer.score(tx, profile, velocity, locationChange, firstTimeMerchant);
         txRepo.save(tx, assessment.riskScore());
 
         if (assessment.riskScore().value() >= HIGH_RISK_THRESHOLD) {

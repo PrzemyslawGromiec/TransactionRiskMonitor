@@ -32,7 +32,8 @@ class IngestTransactionServiceTest {
         //marking transaction as already exists
         repo.markExist(new TransactionId("tx-1"));
 
-        var service = new IngestTransactionService(repo, profilePort, lowVelocity(), normalLocation(), alerts, new RiskScorer());
+        var service = new IngestTransactionService(repo, profilePort, lowVelocity(), normalLocation(),
+                notFirstTimeMerchant(), alerts, new RiskScorer());
 
         var cmd = new IngestTransactionCommand(
                 "tx-1",
@@ -62,7 +63,8 @@ class IngestTransactionServiceTest {
 
         var alerts = new RecordingAlertPublisherReport();
 
-        var service = new IngestTransactionService(repo, profilePort, lowVelocity(), normalLocation(), alerts, new RiskScorer());
+        var service = new IngestTransactionService(repo, profilePort, lowVelocity(), normalLocation(),
+                notFirstTimeMerchant(), alerts, new RiskScorer());
 
         var cmd = new IngestTransactionCommand(
                 "tx-2",
@@ -92,7 +94,8 @@ class IngestTransactionServiceTest {
 
         var alerts = new RecordingAlertPublisherReport();
 
-        var service = new IngestTransactionService(repo, profilePort, lowVelocity(), normalLocation(), alerts, new RiskScorer());
+        var service = new IngestTransactionService(repo, profilePort, lowVelocity(), normalLocation(),
+                notFirstTimeMerchant(), alerts, new RiskScorer());
 
         var cmd = new IngestTransactionCommand(
                 "tx-3",
@@ -144,7 +147,7 @@ class IngestTransactionServiceTest {
         );
 
         IngestTransactionService service = new IngestTransactionService(
-                repo, profiles,lowVelocity(), normalLocation(), publisher, new RiskScorer()
+                repo, profiles, lowVelocity(), normalLocation(), notFirstTimeMerchant(), publisher, new RiskScorer()
         );
 
         IngestTransactionCommand cmd = new IngestTransactionCommand(
@@ -187,7 +190,8 @@ class IngestTransactionServiceTest {
                 TrustStatus.FLAGGED
         );
 
-        var service = new IngestTransactionService(repo, profiles,lowVelocity(), normalLocation(), publisher, new RiskScorer());
+        var service = new IngestTransactionService(repo, profiles, lowVelocity(), normalLocation(),
+                notFirstTimeMerchant(), publisher, new RiskScorer());
 
         var cmd = new IngestTransactionCommand(
                 "tx-777",
@@ -304,6 +308,27 @@ class IngestTransactionServiceTest {
 
     private static LocationHistoryPort normalLocation() {
         return new StubLocationHistoryPort(new LocationChange(false, null, Duration.ZERO));
+    }
+
+    private static final class StubMerchantHistoryPort implements MerchantHistoryPort {
+        private final boolean firstTimeMerchant;
+
+        private StubMerchantHistoryPort(boolean firstTimeMerchant) {
+            this.firstTimeMerchant = firstTimeMerchant;
+        }
+
+        @Override
+        public boolean isFirstTimeMerchant(AccountId accountId, MerchantId merchantId) {
+            return firstTimeMerchant;
+        }
+    }
+
+    private static MerchantHistoryPort notFirstTimeMerchant() {
+        return new StubMerchantHistoryPort(false);
+    }
+
+    private static MerchantHistoryPort firstTimeMerchant() {
+        return new StubMerchantHistoryPort(true);
     }
 
 }

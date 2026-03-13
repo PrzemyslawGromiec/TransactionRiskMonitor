@@ -26,11 +26,17 @@ public final class RiskScorer {
      */
 
     /*
-    * When ingesting transaction, if the same account has >= N transactions within T minutes
-    * add reason HIGH_VELOCITY and increase score
-    */
+     * When ingesting transaction, if the same account has >= N transactions within T minutes
+     * add reason HIGH_VELOCITY and increase score
+     */
 
-    public RiskAssessment score(Transaction tx, AccountProfile profile, VelocityStats velocity, LocationChange locationChange) {
+    public RiskAssessment score(
+            Transaction tx,
+            AccountProfile profile,
+            VelocityStats velocity,
+            LocationChange locationChange,
+            boolean firstTimeMerchant
+    ) {
         if (tx == null || profile == null) {
             throw new IllegalArgumentException("Transaction or account profile not exist");
         }
@@ -58,6 +64,11 @@ public final class RiskScorer {
             reasons.add(RiskReason.HIGH_VELOCITY);
         }
 
+        if (firstTimeMerchant) {
+            score += 15;
+            reasons.add(RiskReason.FIRST_TIME_MERCHANT);
+        }
+
         if (locationChange != null && locationChange.suspicious()) {
             score += 25;
             reasons.add(RiskReason.IMPOSSIBLE_TRAVEL);
@@ -69,7 +80,7 @@ public final class RiskScorer {
                 reasons.add(RiskReason.FLAGGED_ACCOUNT);
             }
             case TRUSTED -> {
-                score -=20;
+                score -= 20;
                 reasons.add(RiskReason.TRUSTED_ACCOUNT);
             }
         }

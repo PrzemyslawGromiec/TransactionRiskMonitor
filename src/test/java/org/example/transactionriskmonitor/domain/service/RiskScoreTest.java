@@ -34,7 +34,13 @@ class RiskScoreTest {
                 Instant.parse("2026-02-03T12:00:00Z")
         );
 
-        RiskAssessment assessment = scorer.score(tx, profile, normalVelocity(), usualLocation());
+        RiskAssessment assessment = scorer.score(
+                tx,
+                profile,
+                normalVelocity(),
+                usualLocation(),
+                false
+        );
         RiskScore score = assessment.riskScore();
 
         assertTrue(score.value() >= 80, "Expected high risk score");
@@ -58,7 +64,14 @@ class RiskScoreTest {
                 Instant.now()
         );
 
-        RiskAssessment assessment = scorer.score(tx, profile, normalVelocity(), usualLocation());
+        RiskAssessment assessment = scorer.score(
+                tx,
+                profile,
+                normalVelocity(),
+                usualLocation(),
+                false
+        );
+
         RiskScore score = assessment.riskScore();
 
         assertTrue(score.value() < 80);
@@ -82,10 +95,72 @@ class RiskScoreTest {
                 Instant.now()
         );
 
-        RiskAssessment assessment = scorer.score(tx, profile, highVelocity(), usualLocation());
+        RiskAssessment assessment = scorer.score(
+                tx,
+                profile,
+                highVelocity(),
+                usualLocation(),
+                false
+        );
 
         assertTrue(assessment.riskScore().value() > 0);
         assertTrue(assessment.reasons().contains(RiskReason.HIGH_VELOCITY));
+    }
+
+    @Test
+    void firstTimeMerchant_shouldIncreaseRiskAndAddReason() {
+        AccountProfile profile = new AccountProfile(
+                false,
+                Set.of(new Country("IR")),
+                TrustStatus.TRUSTED
+        );
+
+        Transaction tx = new Transaction(
+                new TransactionId("tx-10"),
+                new AccountId("acc-10"),
+                new MerchantId("amazon"),
+                new Money(new BigDecimal("100"), Currency.getInstance("GBP")),
+                new Country("GB"),
+                Instant.now()
+        );
+
+        RiskAssessment assessment = scorer.score(
+                tx,
+                profile,
+                normalVelocity(),
+                usualLocation(),
+                true
+        );
+
+        assertTrue(assessment.reasons().contains(RiskReason.FIRST_TIME_MERCHANT));
+    }
+
+    @Test
+    void returningMerchant_shouldNotAddFirstTimeMerchantReason() {
+        AccountProfile profile = new AccountProfile(
+                false,
+                Set.of(new Country("IR")),
+                TrustStatus.TRUSTED
+        );
+
+        Transaction tx = new Transaction(
+                new TransactionId("tx-11"),
+                new AccountId("acc-11"),
+                new MerchantId("amazon"),
+                new Money(new BigDecimal("100"), Currency.getInstance("GBP")),
+                new Country("GB"),
+                Instant.now()
+        );
+
+        RiskAssessment assessment = scorer.score(
+                tx,
+                profile,
+                normalVelocity(),
+                usualLocation(),
+                false
+        );
+
+        assertFalse(assessment.reasons().contains(RiskReason.FIRST_TIME_MERCHANT));
     }
 
     private VelocityStats normalVelocity() {
