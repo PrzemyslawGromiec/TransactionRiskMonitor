@@ -6,10 +6,11 @@ import org.example.transactionriskmonitor.domain.model.Transaction;
 import org.example.transactionriskmonitor.domain.model.TransactionId;
 
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
 public final class InMemoryTransactionRepository  implements TransactionRepositoryPort {
-    private final Map<TransactionId, StoredTransaction> store = new ConcurrentHashMap<>();
+    private final Map<TransactionId, Transaction> store = new ConcurrentHashMap<>();
 
     @Override
     public boolean exists(TransactionId id) {
@@ -17,13 +18,17 @@ public final class InMemoryTransactionRepository  implements TransactionReposito
     }
 
     @Override
-    public void save(Transaction tx, RiskScore score) {
-        store.put(tx.id(), new StoredTransaction(tx, score));
+    public Transaction save(Transaction tx) {
+        store.put(tx.id(), tx);
+        return tx;
     }
 
-    public Map<TransactionId, StoredTransaction> store() {
+    @Override
+    public Optional<Transaction> findById(TransactionId id) {
+        return Optional.ofNullable(store.get(id));
+    }
+
+    public Map<TransactionId, Transaction> store() {
         return Map.copyOf(store);
     }
-
-    public record StoredTransaction(Transaction transaction, RiskScore riskScore) {}
 }

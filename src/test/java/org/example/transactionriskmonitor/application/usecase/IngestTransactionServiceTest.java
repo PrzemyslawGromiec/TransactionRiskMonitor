@@ -1,5 +1,7 @@
 package org.example.transactionriskmonitor.application.usecase;
 
+import org.example.transactionriskmonitor.application.adapter.out.InMemoryRiskAssessmentRepository;
+import org.example.transactionriskmonitor.application.adapter.out.InMemoryTransactionRepository;
 import org.example.transactionriskmonitor.application.port.in.IngestResult;
 import org.example.transactionriskmonitor.application.port.in.IngestTransactionCommand;
 import org.example.transactionriskmonitor.application.port.out.*;
@@ -12,7 +14,6 @@ import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -21,239 +22,304 @@ class IngestTransactionServiceTest {
 
     @Test
     void shouldReturnDuplicate_whenTransactionAlreadyExists() {
-        var repo = new InMemoryTransactionRepository();
-        var profilePort = new StubAccountProfilePort(new AccountProfile(
-                false,
-                Set.of(new Country("GB")),
-                TrustStatus.TRUSTED
-        ));
+        var txRepo = new InMemoryTransactionRepository();
+        var riskAssessmentRepo = new InMemoryRiskAssessmentRepository();
+        var alerts = new RecordingAlertPublisher();
 
-        var alerts = new RecordingAlertPublisherReport();
-
-        //marking transaction as already exists
-        repo.markExist(new TransactionId("tx-1"));
-
-        var service = new IngestTransactionService(repo, profilePort, lowVelocity(), normalLocation(),
-                notFirstTimeMerchant(), alerts, new RiskScorer(policy));
-
-        var cmd = new IngestTransactionCommand(
+        txRepo.save(transaction(
                 "tx-1",
                 "acc-1",
                 "amazon",
                 "100.00",
                 "GBP",
                 "GB",
-                Instant.parse("2026-02-03T12:00:00Z")
+                "2026-02-03T12:00:00Z"
+        ));
+
+        var service = createService(
+                txRepo,
+                riskAssessmentRepo,
+                trustedProfile(),
+                lowVelocity(),
+                normalLocation(),
+                notFirstTimeMerchant(),
+                alerts
+        );
+
+        var cmd = command(
+                "tx-1",
+                "acc-1",
+                "amazon",
+                "100.00",
+                "GBP",
+                "GB",
+                "2026-02-03T12:00:00Z"
         );
 
         IngestResult result = service.ingest(cmd);
 
         assertInstanceOf(IngestResult.Duplicated.class, result);
-        assertEquals(0, repo.savedCount(), "Should not save duplicate transaction");
+        assertEquals(1, txRepo.store().size(), "Should not save duplicate transaction");
+        assertEquals(0, riskAssessmentRepo.store().size(), "Should not save assessment for duplicate");
         assertEquals(0, alerts.publishedCount(), "Should not publish alert for duplicate");
     }
 
     @Test
     void shouldPersistAndReturnAccepted_forNewTransaction() {
-        var repo = new InMemoryTransactionRepository();
-        var profilePort = new StubAccountProfilePort(new AccountProfile(
-                false,
-                Set.of(new Country("US")),
-                TrustStatus.TRUSTED
-        ));
+        var txRepo = new InMemoryTransactionRepository();
+        var riskAssessmentRepo = new InMemoryRiskAssessmentRepository();
+        var alerts = new RecordingAlertPublisher();
 
-        var alerts = new RecordingAlertPublisherReport();
+        var service = createService(
+                txRepo,
+                riskAssessmentRepo,
+                trustedProfile(),
+                lowVelocity(),
+                normalLocation(),
+                notFirstTimeMerchant(),
+                alerts
+        );
 
-        var service = new IngestTransactionService(repo, profilePort, lowVelocity(), normalLocation(),
-                notFirstTimeMerchant(), alerts, new RiskScorer(policy));
-
-        var cmd = new IngestTransactionCommand(
+        var cmd = command(
                 "tx-2",
                 "acc-2",
                 "amazon",
                 "50.00",
                 "GBP",
                 "GB",
-                Instant.parse("2026-02-03T12:01:00Z")
+                "2026-02-03T12:01:00Z"
         );
 
         IngestResult result = service.ingest(cmd);
 
         assertInstanceOf(IngestResult.Accepted.class, result);
-        assertEquals(1, repo.savedCount(), "Should save scored transaction");
+        assertEquals(1, txRepo.store().size(), "Should save transaction");
+        assertEquals(1, riskAssessmentRepo.store().size(), "Should save risk assessment");
         assertEquals(0, alerts.publishedCount(), "Low-risk tx should not publish alert");
     }
 
     @Test
     void shouldPublishHighRiskAlert_whenScoreIsHigh() {
-        var repo = new InMemoryTransactionRepository();
-        var profilePort = new StubAccountProfilePort(new AccountProfile(
-                true,
-                Set.of(new Country("GB")),
-                TrustStatus.FLAGGED
-        ));
+        var txRepo = new InMemoryTransactionRepository();
+        var riskAssessmentRepo = new InMemoryRiskAssessmentRepository();
+        var alerts = new RecordingAlertPublisher();
 
-        var alerts = new RecordingAlertPublisherReport();
+        var service = createService(
+                txRepo,
+                riskAssessmentRepo,
+                flaggedHighRiskProfile(),
+                lowVelocity(),
+                normalLocation(),
+                notFirstTimeMerchant(),
+                alerts
+        );
 
-        var service = new IngestTransactionService(repo, profilePort, lowVelocity(), normalLocation(),
-                notFirstTimeMerchant(), alerts, new RiskScorer(policy));
-
-        var cmd = new IngestTransactionCommand(
+        var cmd = command(
                 "tx-3",
                 "acc-3",
                 "amazon",
-                "9000.0",
+                "9000.00",
                 "GBP",
                 "GB",
-                Instant.parse("2026-02-03T12:02:00Z")
+                "2026-02-03T12:02:00Z"
         );
 
         IngestResult result = service.ingest(cmd);
 
         assertInstanceOf(IngestResult.Accepted.class, result);
-        assertEquals(1, repo.savedCount());
+        assertEquals(1, txRepo.store().size(), "Should save transaction");
+        assertEquals(1, riskAssessmentRepo.store().size(), "Should save assessment");
         assertEquals(1, alerts.publishedCount(), "High-risk tx should publish alert");
 
         HighRiskAlert alert = alerts.lastPublished();
         assertEquals("tx-3", alert.transactionId().value());
         assertEquals("acc-3", alert.accountId().value());
-        assertTrue(alert.riskScore().value() >= 80);
+        assertTrue(alert.riskScore().value() >= policy.highRiskThreshold());
     }
 
     @Test
     void shouldSaveBeforePublishingAlert_forHighRiskTransaction() {
         List<String> calls = new ArrayList<>();
 
-        TransactionRepositoryPort repo = new TransactionRepositoryPort() {
-            private final Set<TransactionId> existing = new HashSet<>();
-
+        TransactionRepositoryPort txRepo = new TransactionRepositoryPort() {
             @Override
             public boolean exists(TransactionId id) {
-                return existing.contains(id);
+                return false;
             }
 
             @Override
-            public void save(Transaction tx, RiskScore score) {
-                existing.add(tx.id());
-                calls.add("save");
+            public Transaction save(Transaction tx) {
+                calls.add("save-transaction");
+                return tx;
+            }
+
+            @Override
+            public Optional<Transaction> findById(TransactionId id) {
+                return Optional.empty();
+            }
+        };
+
+        RiskAssessmentRepositoryPort riskAssessmentRepo = new RiskAssessmentRepositoryPort() {
+            @Override
+            public void save(TransactionId transactionId, RiskAssessment assessment) {
+                calls.add("save-assessment");
+            }
+
+            @Override
+            public Optional<RiskAssessment> findByTransactionId(TransactionId transactionId) {
+                return Optional.empty();
             }
         };
 
         AlertPublisherPort publisher = alert -> calls.add("publish");
 
-        AccountProfilePort profiles = accountId -> new AccountProfile(
-                true,
-                Set.of(new Country("GB")),
-                TrustStatus.FLAGGED
+        var service = createService(
+                txRepo,
+                riskAssessmentRepo,
+                flaggedHighRiskProfile(),
+                lowVelocity(),
+                normalLocation(),
+                notFirstTimeMerchant(),
+                publisher
         );
 
-        IngestTransactionService service = new IngestTransactionService(
-                repo, profiles, lowVelocity(), normalLocation(), notFirstTimeMerchant(), publisher, new RiskScorer(policy)
-        );
-
-        IngestTransactionCommand cmd = new IngestTransactionCommand(
+        service.ingest(command(
                 "tx-100",
                 "acc-100",
                 "amazon",
                 "9000.00",
                 "GBP",
                 "GB",
-                Instant.parse("2026-02-03T12:10:00Z")
-        );
+                "2026-02-03T12:10:00Z"
+        ));
 
-        service.ingest(cmd);
-
-        assertEquals(List.of("save", "publish"), calls);
+        assertEquals(List.of("save-transaction", "save-assessment", "publish"), calls);
     }
 
     @Test
     void shouldPublishOnlyOneAlert_whenSameHighRiskTransactionIsIngestedTwice() {
-        List<HighRiskAlert> published = new ArrayList<>();
-        AlertPublisherPort publisher = published::add;
+        var txRepo = new InMemoryTransactionRepository();
+        var riskAssessmentRepo = new InMemoryRiskAssessmentRepository();
+        var alerts = new RecordingAlertPublisher();
 
-        TransactionRepositoryPort repo = new TransactionRepositoryPort() {
-            private final Set<TransactionId> existing = new HashSet<>();
-
-            @Override
-            public boolean exists(TransactionId id) {
-                return existing.contains(id);
-            }
-
-            @Override
-            public void save(Transaction tx, RiskScore score) {
-                existing.add(tx.id());
-            }
-        };
-
-        AccountProfilePort profiles = accountId -> new AccountProfile(
-                true,
-                Set.of(new Country("GB")),
-                TrustStatus.FLAGGED
+        var service = createService(
+                txRepo,
+                riskAssessmentRepo,
+                flaggedHighRiskProfile(),
+                lowVelocity(),
+                normalLocation(),
+                notFirstTimeMerchant(),
+                alerts
         );
 
-        var service = new IngestTransactionService(repo, profiles, lowVelocity(), normalLocation(),
-                notFirstTimeMerchant(), publisher, new RiskScorer(policy));
-
-        var cmd = new IngestTransactionCommand(
+        var cmd = command(
                 "tx-777",
                 "acc-777",
                 "amazon",
                 "9000.00",
                 "GBP",
                 "GB",
-                Instant.parse("2026-02-03T12:20:00Z")
+                "2026-02-03T12:20:00Z"
         );
 
-        var first = service.ingest(cmd);
-        var second = service.ingest(cmd);
+        IngestResult first = service.ingest(cmd);
+        IngestResult second = service.ingest(cmd);
 
         assertInstanceOf(IngestResult.Accepted.class, first);
         assertInstanceOf(IngestResult.Duplicated.class, second);
-        assertEquals(1, published.size(), "Alert must be published only once");
+        assertEquals(1, alerts.publishedCount(), "Alert must be published only once");
+        assertEquals(1, txRepo.store().size(), "Transaction must be stored only once");
+        assertEquals(1, riskAssessmentRepo.store().size(), "Assessment must be stored only once");
     }
 
-    //In memory fake repository useful for unit test
-    private static final class InMemoryTransactionRepository implements TransactionRepositoryPort {
+    // ---------- helpers ----------
 
-        private final Set<TransactionId> existing = ConcurrentHashMap.newKeySet();
-        private final Map<TransactionId, RiskScore> saved = new ConcurrentHashMap<>();
-
-        @Override
-        public boolean exists(TransactionId id) {
-            return existing.contains(id);
-        }
-
-        @Override
-        public void save(Transaction tx, RiskScore score) {
-            existing.add(tx.id());
-            saved.put(tx.id(), score);
-        }
-
-        void markExist(TransactionId id) {
-            existing.add(id);
-        }
-
-        int savedCount() {
-            return saved.size();
-        }
+    private IngestTransactionService createService(
+            TransactionRepositoryPort txRepo,
+            RiskAssessmentRepositoryPort riskAssessmentRepo,
+            AccountProfilePort profilePort,
+            VelocityPort velocityPort,
+            LocationHistoryPort locationHistoryPort,
+            MerchantHistoryPort merchantHistoryPort,
+            AlertPublisherPort alertPublisher
+    ) {
+        return new IngestTransactionService(
+                txRepo,
+                riskAssessmentRepo,
+                profilePort,
+                velocityPort,
+                locationHistoryPort,
+                merchantHistoryPort,
+                alertPublisher,
+                new RiskScorer(policy),
+                policy
+        );
     }
 
-    //Profile port that returns fixed data
-    private static final class StubAccountProfilePort implements AccountProfilePort {
-        private final AccountProfile profile;
-
-        private StubAccountProfilePort(AccountProfile profile) {
-            this.profile = profile;
-        }
-
-        @Override
-        public AccountProfile load(AccountId accountId) {
-            return profile;
-        }
+    private static IngestTransactionCommand command(
+            String txId,
+            String accId,
+            String merchantId,
+            String amount,
+            String currency,
+            String country,
+            String occurredAt
+    ) {
+        return new IngestTransactionCommand(
+                txId,
+                accId,
+                merchantId,
+                amount,
+                currency,
+                country,
+                Instant.parse(occurredAt)
+        );
     }
 
-    //Alert publisher
-    private static final class RecordingAlertPublisherReport implements AlertPublisherPort {
+    private static Transaction transaction(
+            String txId,
+            String accId,
+            String merchantId,
+            String amount,
+            String currency,
+            String country,
+            String occurredAt
+    ) {
+        return new Transaction(
+                new TransactionId(txId),
+                new AccountId(accId),
+                new MerchantId(merchantId),
+                new Money(new BigDecimal(amount), Currency.getInstance(currency)),
+                new Country(country),
+                Instant.parse(occurredAt)
+        );
+    }
+
+    private static AccountProfilePort trustedProfile() {
+        return new StubAccountProfilePort(new AccountProfile(
+                false,
+                Set.of(new Country("GB")),
+                TrustStatus.TRUSTED
+        ));
+    }
+
+    private static AccountProfilePort flaggedHighRiskProfile() {
+        return new StubAccountProfilePort(new AccountProfile(
+                true,
+                Set.of(new Country("GB")),
+                TrustStatus.FLAGGED
+        ));
+    }
+
+    private record StubAccountProfilePort(AccountProfile profile) implements AccountProfilePort {
+
+        @Override
+            public AccountProfile load(AccountId accountId) {
+                return profile;
+            }
+        }
+
+    private static final class RecordingAlertPublisher implements AlertPublisherPort {
         private final List<HighRiskAlert> publishedAlerts = new ArrayList<>();
 
         @Override
@@ -273,63 +339,44 @@ class IngestTransactionServiceTest {
         }
     }
 
-    private static final class StubVelocityPort implements VelocityPort {
-        private final VelocityStats stats;
-
-        private StubVelocityPort(VelocityStats stats) {
-            this.stats = stats;
-        }
+    private record StubVelocityPort(VelocityStats stats) implements VelocityPort {
 
         @Override
-        public VelocityStats observe(AccountId accountId, Instant occurredAt, Money amount, MerchantId merchantId) {
-            return stats;
+            public VelocityStats observe(AccountId accountId, Instant occurredAt, Money amount, MerchantId merchantId) {
+                return stats;
+            }
         }
-    }
 
     private static VelocityPort lowVelocity() {
         return new StubVelocityPort(new VelocityStats(
                 1,
-                new Money(BigDecimal.ZERO, java.util.Currency.getInstance("GBP")),
+                new Money(BigDecimal.ZERO, Currency.getInstance("GBP")),
                 1
         ));
     }
 
-    private static final class StubLocationHistoryPort implements LocationHistoryPort {
-        private final LocationChange change;
-
-        private StubLocationHistoryPort(LocationChange change) {
-            this.change = change;
-        }
+    private record StubLocationHistoryPort(LocationChange change) implements LocationHistoryPort {
 
         @Override
-        public LocationChange observe(AccountId accountId, Instant occurredAt, Country currentCountry) {
-            return change;
+            public LocationChange observe(AccountId accountId, Instant occurredAt, Country currentCountry) {
+                return change;
+            }
         }
-    }
 
     private static LocationHistoryPort normalLocation() {
         return new StubLocationHistoryPort(new LocationChange(false, null, Duration.ZERO));
     }
 
-    private static final class StubMerchantHistoryPort implements MerchantHistoryPort {
-        private final boolean firstTimeMerchant;
-
-        private StubMerchantHistoryPort(boolean firstTimeMerchant) {
-            this.firstTimeMerchant = firstTimeMerchant;
-        }
+    private record StubMerchantHistoryPort(boolean firstTimeMerchant) implements MerchantHistoryPort {
 
         @Override
-        public boolean isFirstTimeMerchant(AccountId accountId, MerchantId merchantId) {
-            return firstTimeMerchant;
+            public boolean isFirstTimeMerchant(AccountId accountId, MerchantId merchantId) {
+                return firstTimeMerchant;
+            }
         }
-    }
 
     private static MerchantHistoryPort notFirstTimeMerchant() {
         return new StubMerchantHistoryPort(false);
-    }
-
-    private static MerchantHistoryPort firstTimeMerchant() {
-        return new StubMerchantHistoryPort(true);
     }
 
 }

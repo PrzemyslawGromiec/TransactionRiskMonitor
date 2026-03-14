@@ -4,7 +4,10 @@ import org.example.transactionriskmonitor.domain.model.RiskScore;
 import org.example.transactionriskmonitor.domain.model.Transaction;
 import org.example.transactionriskmonitor.domain.model.TransactionId;
 
+import java.util.Optional;
+
 public interface TransactionRepositoryPort {
     boolean exists(TransactionId id);
-    void save(Transaction tx, RiskScore score);
+    Transaction save(Transaction tx);
+    Optional<Transaction> findById(TransactionId id);
 }

@@ -14,29 +14,35 @@ import java.util.Currency;
 
 public final class IngestTransactionService implements IngestTransactionUseCase {
     private final TransactionRepositoryPort txRepo;
+    private final RiskAssessmentRepositoryPort riskAssessmentRepo;
     private final AccountProfilePort profilePort;
     private final VelocityPort velocityPort;
     private final LocationHistoryPort locationHistoryPort;
     private final MerchantHistoryPort merchantHistoryPort;
     private final AlertPublisherPort alertPublisher;
     private final RiskScorer riskScorer;
+    private final RiskPolicy riskPolicy;
 
     public IngestTransactionService(
             TransactionRepositoryPort txRepo,
+            RiskAssessmentRepositoryPort riskAssessmentRepo,
             AccountProfilePort profilePort,
             VelocityPort velocityPort,
             LocationHistoryPort locationHistoryPort,
             MerchantHistoryPort merchantHistoryPort,
             AlertPublisherPort alertPublisher,
-            RiskScorer riskScorer
+            RiskScorer riskScorer,
+            RiskPolicy riskPolicy
     ) {
         this.txRepo = txRepo;
+        this.riskAssessmentRepo = riskAssessmentRepo;
         this.profilePort = profilePort;
         this.velocityPort = velocityPort;
         this.locationHistoryPort = locationHistoryPort;
         this.merchantHistoryPort = merchantHistoryPort;
         this.alertPublisher = alertPublisher;
         this.riskScorer = riskScorer;
+        this.riskPolicy = riskPolicy;
     }
 
     @Override
@@ -53,14 +59,24 @@ public final class IngestTransactionService implements IngestTransactionUseCase 
         }
 
         Transaction tx = new Transaction(txId, accountId, merchantId, money, country, occurredAt);
+
         boolean firstTimeMerchant = merchantHistoryPort.isFirstTimeMerchant(accountId, merchantId);
         AccountProfile profile = profilePort.load(accountId);
         LocationChange locationChange = locationHistoryPort.observe(accountId, occurredAt, country);
         VelocityStats velocity = velocityPort.observe(accountId, occurredAt, money, tx.merchantId());
-        RiskAssessment assessment = riskScorer.score(tx, profile, velocity, locationChange, firstTimeMerchant);
-        txRepo.save(tx, assessment.riskScore());
 
-        if (assessment.riskScore().value() >= RiskPolicy.defaultPolicy().highRiskThreshold()) {
+        RiskAssessment assessment = riskScorer.score(
+                tx,
+                profile,
+                velocity,
+                locationChange,
+                firstTimeMerchant
+        );
+
+        txRepo.save(tx);
+        riskAssessmentRepo.save(txId, assessment);
+
+        if (assessment.riskScore().value() >= riskPolicy.highRiskThreshold()) {
             HighRiskAlert alert = new HighRiskAlert(
                     txId,
                     accountId,
@@ -70,6 +86,7 @@ public final class IngestTransactionService implements IngestTransactionUseCase 
             );
             alertPublisher.publish(alert);
         }
+
         return new IngestResult.Accepted(txId.value(), assessment.riskScore());
     }
 }

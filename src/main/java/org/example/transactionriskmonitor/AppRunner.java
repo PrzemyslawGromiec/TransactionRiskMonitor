@@ -14,6 +14,7 @@ import java.util.Set;
 public class AppRunner {
     public static void main(String[] args) {
         TransactionRepositoryPort txRepo = new InMemoryTransactionRepository();
+        RiskAssessmentRepositoryPort assessmentRepo = new InMemoryRiskAssessmentRepository();
         MerchantHistoryPort merchantHistoryPort = new InMemoryMerchantHistoryAdapter();
         InMemoryAccountProfileAdapter profileAdapter = new InMemoryAccountProfileAdapter();
 
@@ -35,12 +36,14 @@ public class AppRunner {
 
         IngestTransactionUseCase service = new IngestTransactionService(
                 txRepo,
+                assessmentRepo,
                 profileAdapter,
                 velocityPort,
                 locationPort,
                 merchantHistoryPort,
                 alertPublisher,
-                riskScorer
+                riskScorer,
+                policy
         );
 
         var now = java.time.Instant.now();
@@ -61,7 +64,7 @@ public class AppRunner {
                 "amazon",
                 "9000.00",
                 "GBP",
-                "US",   // different country shortly after
+                "US",
                 now.plusSeconds(60)
         );
 
@@ -75,7 +78,6 @@ public class AppRunner {
                 now.plusSeconds(120)
         );
 
-        // duplicated transaction
         IngestTransactionCommand tx4 = new IngestTransactionCommand(
                 "tx-1",
                 "acc-1",
