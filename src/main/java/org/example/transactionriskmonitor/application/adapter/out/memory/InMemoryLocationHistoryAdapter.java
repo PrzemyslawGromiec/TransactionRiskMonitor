@@ -1,4 +1,4 @@
-package org.example.transactionriskmonitor.application.adapter.out;
+package org.example.transactionriskmonitor.application.adapter.out.memory;
 
 import org.example.transactionriskmonitor.application.port.out.LocationChange;
 import org.example.transactionriskmonitor.application.port.out.LocationHistoryPort;
@@ -10,7 +10,7 @@ import java.time.Instant;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-public final class InMemoryLocationHistoryAdapter implements LocationHistoryPort {
+public class InMemoryLocationHistoryAdapter implements LocationHistoryPort {
     private final Duration rapidChangeThreshold;
     private final Map<AccountId, LastSeen> lastSeenByAccount = new ConcurrentHashMap<>();
 

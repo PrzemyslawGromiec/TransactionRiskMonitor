@@ -1,4 +1,4 @@
-package org.example.transactionriskmonitor.application.adapter.out;
+package org.example.transactionriskmonitor.application.adapter.out.memory;
 
 import org.example.transactionriskmonitor.application.port.out.AlertPublisherPort;
 import org.example.transactionriskmonitor.domain.event.HighRiskAlert;

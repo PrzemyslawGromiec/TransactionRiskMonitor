@@ -1,13 +1,17 @@
-package org.example.transactionriskmonitor.application.adapter.out;
+package org.example.transactionriskmonitor.application.adapter.out.memory;
 
 import org.example.transactionriskmonitor.application.port.out.RiskAssessmentRepositoryPort;
 import org.example.transactionriskmonitor.domain.model.RiskAssessment;
 import org.example.transactionriskmonitor.domain.model.TransactionId;
+import org.springframework.context.annotation.Profile;
+import org.springframework.stereotype.Repository;
 
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
+@Repository
+@Profile("memory")
 public class InMemoryRiskAssessmentRepository implements RiskAssessmentRepositoryPort {
     private final Map<TransactionId, RiskAssessment> store = new ConcurrentHashMap<>();
 

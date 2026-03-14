@@ -1,7 +1,7 @@
 package org.example.transactionriskmonitor.application.usecase;
 
-import org.example.transactionriskmonitor.application.adapter.out.InMemoryRiskAssessmentRepository;
-import org.example.transactionriskmonitor.application.adapter.out.InMemoryTransactionRepository;
+import org.example.transactionriskmonitor.application.adapter.out.memory.InMemoryRiskAssessmentRepository;
+import org.example.transactionriskmonitor.application.adapter.out.memory.InMemoryTransactionRepository;
 import org.example.transactionriskmonitor.application.port.in.IngestResult;
 import org.example.transactionriskmonitor.application.port.in.IngestTransactionCommand;
 import org.example.transactionriskmonitor.application.port.out.*;

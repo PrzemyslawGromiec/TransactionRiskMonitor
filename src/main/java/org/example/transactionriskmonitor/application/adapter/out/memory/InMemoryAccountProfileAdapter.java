@@ -1,4 +1,4 @@
-package org.example.transactionriskmonitor.application.adapter.out;
+package org.example.transactionriskmonitor.application.adapter.out.memory;
 
 import org.example.transactionriskmonitor.application.port.out.AccountProfilePort;
 import org.example.transactionriskmonitor.domain.model.AccountId;
@@ -7,7 +7,7 @@ import org.example.transactionriskmonitor.domain.model.AccountProfile;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-public final class InMemoryAccountProfileAdapter implements AccountProfilePort {
+public class InMemoryAccountProfileAdapter implements AccountProfilePort {
     private final Map<AccountId, AccountProfile> profiles = new ConcurrentHashMap<>();
 
 

@@ -1,15 +1,18 @@
-package org.example.transactionriskmonitor.application.adapter.out;
+package org.example.transactionriskmonitor.application.adapter.out.memory;
 
 import org.example.transactionriskmonitor.application.port.out.TransactionRepositoryPort;
-import org.example.transactionriskmonitor.domain.model.RiskScore;
 import org.example.transactionriskmonitor.domain.model.Transaction;
 import org.example.transactionriskmonitor.domain.model.TransactionId;
+import org.springframework.context.annotation.Profile;
+import org.springframework.stereotype.Repository;
 
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
-public final class InMemoryTransactionRepository  implements TransactionRepositoryPort {
+@Repository
+@Profile("memory")
+public class InMemoryTransactionRepository  implements TransactionRepositoryPort {
     private final Map<TransactionId, Transaction> store = new ConcurrentHashMap<>();
 
     @Override

@@ -7,12 +7,14 @@ import org.example.transactionriskmonitor.application.port.out.*;
 import org.example.transactionriskmonitor.domain.event.HighRiskAlert;
 import org.example.transactionriskmonitor.domain.model.*;
 import org.example.transactionriskmonitor.domain.service.RiskScorer;
+import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.Currency;
 
-public final class IngestTransactionService implements IngestTransactionUseCase {
+@Service
+public class IngestTransactionService implements IngestTransactionUseCase {
     private final TransactionRepositoryPort txRepo;
     private final RiskAssessmentRepositoryPort riskAssessmentRepo;
     private final AccountProfilePort profilePort;
