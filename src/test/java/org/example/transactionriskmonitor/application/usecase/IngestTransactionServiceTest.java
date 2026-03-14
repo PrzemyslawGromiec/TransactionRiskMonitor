@@ -17,6 +17,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import static org.junit.jupiter.api.Assertions.*;
 
 class IngestTransactionServiceTest {
+    private final RiskPolicy policy = RiskPolicy.defaultPolicy();
 
     @Test
     void shouldReturnDuplicate_whenTransactionAlreadyExists() {
@@ -33,7 +34,7 @@ class IngestTransactionServiceTest {
         repo.markExist(new TransactionId("tx-1"));
 
         var service = new IngestTransactionService(repo, profilePort, lowVelocity(), normalLocation(),
-                notFirstTimeMerchant(), alerts, new RiskScorer());
+                notFirstTimeMerchant(), alerts, new RiskScorer(policy));
 
         var cmd = new IngestTransactionCommand(
                 "tx-1",
@@ -64,7 +65,7 @@ class IngestTransactionServiceTest {
         var alerts = new RecordingAlertPublisherReport();
 
         var service = new IngestTransactionService(repo, profilePort, lowVelocity(), normalLocation(),
-                notFirstTimeMerchant(), alerts, new RiskScorer());
+                notFirstTimeMerchant(), alerts, new RiskScorer(policy));
 
         var cmd = new IngestTransactionCommand(
                 "tx-2",
@@ -95,7 +96,7 @@ class IngestTransactionServiceTest {
         var alerts = new RecordingAlertPublisherReport();
 
         var service = new IngestTransactionService(repo, profilePort, lowVelocity(), normalLocation(),
-                notFirstTimeMerchant(), alerts, new RiskScorer());
+                notFirstTimeMerchant(), alerts, new RiskScorer(policy));
 
         var cmd = new IngestTransactionCommand(
                 "tx-3",
@@ -147,7 +148,7 @@ class IngestTransactionServiceTest {
         );
 
         IngestTransactionService service = new IngestTransactionService(
-                repo, profiles, lowVelocity(), normalLocation(), notFirstTimeMerchant(), publisher, new RiskScorer()
+                repo, profiles, lowVelocity(), normalLocation(), notFirstTimeMerchant(), publisher, new RiskScorer(policy)
         );
 
         IngestTransactionCommand cmd = new IngestTransactionCommand(
@@ -191,7 +192,7 @@ class IngestTransactionServiceTest {
         );
 
         var service = new IngestTransactionService(repo, profiles, lowVelocity(), normalLocation(),
-                notFirstTimeMerchant(), publisher, new RiskScorer());
+                notFirstTimeMerchant(), publisher, new RiskScorer(policy));
 
         var cmd = new IngestTransactionCommand(
                 "tx-777",

@@ -13,7 +13,6 @@ import java.time.Instant;
 import java.util.Currency;
 
 public final class IngestTransactionService implements IngestTransactionUseCase {
-    private static final int HIGH_RISK_THRESHOLD = 80;
     private final TransactionRepositoryPort txRepo;
     private final AccountProfilePort profilePort;
     private final VelocityPort velocityPort;
@@ -61,7 +60,7 @@ public final class IngestTransactionService implements IngestTransactionUseCase 
         RiskAssessment assessment = riskScorer.score(tx, profile, velocity, locationChange, firstTimeMerchant);
         txRepo.save(tx, assessment.riskScore());
 
-        if (assessment.riskScore().value() >= HIGH_RISK_THRESHOLD) {
+        if (assessment.riskScore().value() >= RiskPolicy.defaultPolicy().highRiskThreshold()) {
             HighRiskAlert alert = new HighRiskAlert(
                     txId,
                     accountId,

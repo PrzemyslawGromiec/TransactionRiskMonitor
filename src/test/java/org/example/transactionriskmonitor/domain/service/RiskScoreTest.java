@@ -15,7 +15,7 @@ import java.util.Set;
 import static org.junit.jupiter.api.Assertions.*;
 
 class RiskScoreTest {
-    private final RiskScorer scorer = new RiskScorer();
+    private final RiskScorer scorer = new RiskScorer(RiskPolicy.defaultPolicy());
 
     @Test
     void flaggedAccountHighAmountHighRiskCountry_shouldProduceHighScore() {

@@ -5,10 +5,7 @@ import org.example.transactionriskmonitor.application.port.in.IngestTransactionC
 import org.example.transactionriskmonitor.application.port.in.IngestTransactionUseCase;
 import org.example.transactionriskmonitor.application.port.out.*;
 import org.example.transactionriskmonitor.application.usecase.IngestTransactionService;
-import org.example.transactionriskmonitor.domain.model.AccountId;
-import org.example.transactionriskmonitor.domain.model.AccountProfile;
-import org.example.transactionriskmonitor.domain.model.Country;
-import org.example.transactionriskmonitor.domain.model.TrustStatus;
+import org.example.transactionriskmonitor.domain.model.*;
 import org.example.transactionriskmonitor.domain.service.RiskScorer;
 
 import java.time.Duration;
@@ -32,8 +29,9 @@ public class AppRunner {
         VelocityPort velocityPort = new InMemoryVelocityAdapter(Duration.ofMinutes(5));
         LocationHistoryPort locationPort = new InMemoryLocationHistoryAdapter(Duration.ofMinutes(10));
         AlertPublisherPort alertPublisher = new ConsoleAlertPublisher();
+        RiskPolicy policy = RiskPolicy.defaultPolicy();
 
-        RiskScorer riskScorer = new RiskScorer();
+        RiskScorer riskScorer = new RiskScorer(policy);
 
         IngestTransactionUseCase service = new IngestTransactionService(
                 txRepo,
@@ -77,8 +75,20 @@ public class AppRunner {
                 now.plusSeconds(120)
         );
 
+        // duplicated transaction
+        IngestTransactionCommand tx4 = new IngestTransactionCommand(
+                "tx-1",
+                "acc-1",
+                "amazon",
+                "9000.00",
+                "GBP",
+                "IR",
+                now
+        );
+
         System.out.println(service.ingest(tx1));
         System.out.println(service.ingest(tx2));
         System.out.println(service.ingest(tx3));
+        System.out.println(service.ingest(tx4));
     }
 }
