@@ -42,10 +42,12 @@ public class RiskAssessmentPersistenceMapper {
             return EnumSet.noneOf(RiskReason.class);
         }
 
+        // NOTE FOR MYSELF: take each String reason and convert it into corresponding RiskReson enum using valueOf()
         return Arrays.stream(reasons.split(","))
                 .map(String::trim)
                 .filter(s -> !s.isEmpty())
                 .map(RiskReason::valueOf)
                 .collect(Collectors.toCollection(() -> EnumSet.noneOf(RiskReason.class)));
     }
+
 }

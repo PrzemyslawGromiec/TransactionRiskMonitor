@@ -53,7 +53,7 @@ public class IngestTransactionService implements IngestTransactionUseCase {
         AccountId accountId = new AccountId(cmd.accountId());
         MerchantId merchantId = new MerchantId(cmd.merchantId());
         Country country = new Country(cmd.country());
-        Money money = new Money(new BigDecimal(cmd.amount()), Currency.getInstance(cmd.currency()));
+        Money money = new Money(cmd.amount(), Currency.getInstance(cmd.currency()));
         Instant occurredAt = cmd.occurredAt();
 
         if (txRepo.exists(txId)) {

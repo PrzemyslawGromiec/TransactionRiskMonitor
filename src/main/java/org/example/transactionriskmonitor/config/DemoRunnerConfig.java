@@ -13,6 +13,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.Set;
 
@@ -43,7 +44,7 @@ public class DemoRunnerConfig {
                     "tx-1",
                     "acc-1",
                     "amazon",
-                    "9000.00",
+                    BigDecimal.valueOf(9000),
                     "GBP",
                     "IR",
                     now
@@ -53,7 +54,7 @@ public class DemoRunnerConfig {
                     "tx-2",
                     "acc-1",
                     "amazon",
-                    "9000.00",
+                    BigDecimal.valueOf(9000),
                     "GBP",
                     "US",
                     now.plusSeconds(60)
@@ -63,7 +64,7 @@ public class DemoRunnerConfig {
                     "tx-3",
                     "acc-1",
                     "amazon",
-                    "9000.00",
+                    BigDecimal.valueOf(9000),
                     "GBP",
                     "GB",
                     now.plusSeconds(120)
@@ -73,7 +74,7 @@ public class DemoRunnerConfig {
                     "tx-1",
                     "acc-1",
                     "amazon",
-                    "9000.00",
+                    BigDecimal.valueOf(9000),
                     "GBP",
                     "IR",
                     now

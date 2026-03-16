@@ -11,10 +11,6 @@ import java.time.Duration;
 
 @Configuration
 public class AdapterConfig {
-    @Bean
-    public AccountProfilePort accountProfilePort() {
-        return new InMemoryAccountProfileAdapter();
-    }
 
     @Bean
     public VelocityPort velocityPort() {
