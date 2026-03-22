@@ -9,7 +9,6 @@ import org.example.transactionriskmonitor.domain.model.*;
 import org.example.transactionriskmonitor.domain.service.RiskScorer;
 import org.springframework.stereotype.Service;
 
-import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.Currency;
 

@@ -4,6 +4,7 @@ import org.example.transactionriskmonitor.application.adapter.out.memory.*;
 import org.example.transactionriskmonitor.application.port.out.*;
 import org.example.transactionriskmonitor.domain.model.RiskPolicy;
 import org.example.transactionriskmonitor.domain.service.RiskScorer;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -13,13 +14,17 @@ import java.time.Duration;
 public class AdapterConfig {
 
     @Bean
-    public VelocityPort velocityPort() {
-        return new InMemoryVelocityAdapter(Duration.ofMinutes(5));
+    public VelocityPort velocityPort(
+            @Value("${velocity.window.minutes:5}") long minutes
+    ) {
+        return new InMemoryVelocityAdapter(Duration.ofMinutes(minutes));
     }
 
     @Bean
-    public LocationHistoryPort locationHistoryPort() {
-        return new InMemoryLocationHistoryAdapter(Duration.ofMinutes(10));
+    public LocationHistoryPort locationHistoryPort(
+            @Value("${location.history.window.minutes:10}") long minutes
+    ) {
+        return new InMemoryLocationHistoryAdapter(Duration.ofMinutes(minutes));
     }
 
     @Bean
