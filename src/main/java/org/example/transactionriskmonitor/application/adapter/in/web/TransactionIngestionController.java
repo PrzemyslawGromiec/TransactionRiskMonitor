@@ -38,6 +38,6 @@ public class TransactionIngestionController {
         IngestResult result = ingestTransactionUseCase.ingest(command);
 
         IngestTransactionHttpResponse response = IngestTransactionHttpMapper.toResponse(result);
-        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+        return ResponseEntity.status(HttpStatus.ACCEPTED).body(response);
     }
 }

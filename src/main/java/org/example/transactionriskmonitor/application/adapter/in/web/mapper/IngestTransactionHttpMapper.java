@@ -25,14 +25,16 @@ public class IngestTransactionHttpMapper {
                 new IngestTransactionHttpResponse(
                         accepted.transactionId(),
                         "ACCEPTED",
-                        accepted.riskScore().value()
+                        accepted.riskScore().value(),
+                        "Transaction accepted"
                 );
 
             case IngestResult.Duplicated duplicated ->
                 new IngestTransactionHttpResponse(
                         duplicated.transactionId(),
                         "DUPLICATED",
-                        null
+                        null,
+                        "Transaction already exists"
                 );
         };
     }
