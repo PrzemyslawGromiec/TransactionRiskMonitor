@@ -10,6 +10,7 @@ public record ApiErrorResponse(
         String code,
         String message,
         String path,
+        String correlationId,
         Map<String, String> fieldErrors
 ) {
     public static ApiErrorResponse of(
@@ -17,7 +18,8 @@ public record ApiErrorResponse(
             String error,
             String code,
             String message,
-            String path
+            String path,
+            String correlationId
     ) {
         return new ApiErrorResponse(
                 Instant.now(),
@@ -26,6 +28,7 @@ public record ApiErrorResponse(
                 code,
                 message,
                 path,
+                correlationId,
                 Map.of()
         );
     }
@@ -36,6 +39,7 @@ public record ApiErrorResponse(
             String code,
             String message,
             String path,
+            String correlationId,
             Map<String, String> fieldErrors
     ) {
         return new ApiErrorResponse(
@@ -45,6 +49,7 @@ public record ApiErrorResponse(
                 code,
                 message,
                 path,
+                correlationId,
                 fieldErrors
         );
     }

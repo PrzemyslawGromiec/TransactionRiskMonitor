@@ -7,6 +7,8 @@ import org.example.transactionriskmonitor.application.port.out.*;
 import org.example.transactionriskmonitor.domain.event.HighRiskAlert;
 import org.example.transactionriskmonitor.domain.model.*;
 import org.example.transactionriskmonitor.domain.service.RiskScorer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
@@ -23,6 +25,8 @@ public class IngestTransactionService implements IngestTransactionUseCase {
     private final AlertPublisherPort alertPublisher;
     private final RiskScorer riskScorer;
     private final RiskPolicy riskPolicy;
+
+    private static final Logger log = LoggerFactory.getLogger(IngestTransactionService.class);
 
     public IngestTransactionService(
             TransactionRepositoryPort txRepo,
@@ -55,6 +59,8 @@ public class IngestTransactionService implements IngestTransactionUseCase {
         Money money = new Money(cmd.amount(), Currency.getInstance(cmd.currency()));
         Instant occurredAt = cmd.occurredAt();
 
+        log.info("Ingest started. transactionId={}, accountId={}", cmd.transactionId(), cmd.accountId());
+
         if (txRepo.exists(txId)) {
             return new IngestResult.Duplicated(txId.value());
         }
@@ -74,6 +80,14 @@ public class IngestTransactionService implements IngestTransactionUseCase {
                 firstTimeMerchant
         );
 
+        log.info(
+                "Risk assessment completed. transactionId={}, riskScore={}, reasons={}, highRiskThreshold={}",
+                txId.value(),
+                assessment.riskScore().value(),
+                assessment.reasons(),
+                riskPolicy.highRiskThreshold()
+        );
+
         txRepo.save(tx);
         riskAssessmentRepo.save(txId, assessment);
 
@@ -87,6 +101,14 @@ public class IngestTransactionService implements IngestTransactionUseCase {
             );
             alertPublisher.publish(alert);
         }
+
+        log.warn(
+                "High-risk alert published. transactionId={}, accountId={}, riskScore={}, reasons={}",
+                txId.value(),
+                accountId.value(),
+                assessment.riskScore().value(),
+                assessment.reasons()
+        );
 
         return new IngestResult.Accepted(txId.value(), assessment.riskScore());
     }

@@ -10,3 +10,16 @@ location:
   history:
     window:
       minutes: 10
+
+logging:
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} %-5level [%X{correlationId}] %logger{36} - %msg%n"
+  file:
+    name: logs/app.log
+  logback:
+    rolling policy:
+      max-file-size: 10MB
+      max-history: 7
+      total-size-cap: 100MB
+      file-name-pattern: "logs/app-%d{yyyy-MM-dd}.%i.log.gz"
+      clean-history-on-start: true
