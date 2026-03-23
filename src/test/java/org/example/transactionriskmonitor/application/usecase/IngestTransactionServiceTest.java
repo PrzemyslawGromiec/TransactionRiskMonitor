@@ -50,7 +50,7 @@ class IngestTransactionServiceTest {
                 "tx-1",
                 "acc-1",
                 "amazon",
-                "100.00",
+                new BigDecimal("100.00"),
                 "GBP",
                 "GB",
                 "2026-02-03T12:00:00Z"
@@ -84,7 +84,7 @@ class IngestTransactionServiceTest {
                 "tx-2",
                 "acc-2",
                 "amazon",
-                "50.00",
+                new BigDecimal("50"),
                 "GBP",
                 "GB",
                 "2026-02-03T12:01:00Z"
@@ -118,7 +118,7 @@ class IngestTransactionServiceTest {
                 "tx-3",
                 "acc-3",
                 "amazon",
-                "9000.00",
+                new BigDecimal("9000.00"),
                 "GBP",
                 "GB",
                 "2026-02-03T12:02:00Z"
@@ -187,7 +187,7 @@ class IngestTransactionServiceTest {
                 "tx-100",
                 "acc-100",
                 "amazon",
-                "9000.00",
+                new BigDecimal("9000.00"),
                 "GBP",
                 "GB",
                 "2026-02-03T12:10:00Z"
@@ -216,7 +216,7 @@ class IngestTransactionServiceTest {
                 "tx-777",
                 "acc-777",
                 "amazon",
-                "9000.00",
+                new BigDecimal("9000.00"),
                 "GBP",
                 "GB",
                 "2026-02-03T12:20:00Z"
@@ -260,7 +260,7 @@ class IngestTransactionServiceTest {
             String txId,
             String accId,
             String merchantId,
-            String amount,
+            BigDecimal amount,
             String currency,
             String country,
             String occurredAt

@@ -4,9 +4,11 @@ import org.example.transactionriskmonitor.application.adapter.out.persistence.en
 import org.example.transactionriskmonitor.application.adapter.out.persistence.mapper.TransactionPersistenceMapper;
 import org.example.transactionriskmonitor.application.adapter.out.persistence.repository.SpringDataTransactionRepository;
 import org.example.transactionriskmonitor.application.port.out.TransactionRepositoryPort;
+import org.example.transactionriskmonitor.domain.exception.DuplicateTransactionPersistenceException;
 import org.example.transactionriskmonitor.domain.model.Transaction;
 import org.example.transactionriskmonitor.domain.model.TransactionId;
 import org.springframework.context.annotation.Profile;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Repository;
 
 import java.util.Optional;
@@ -25,18 +27,37 @@ public class JpaTransactionRepositoryAdapter implements TransactionRepositoryPor
 
     @Override
     public boolean exists(TransactionId id) {
-        return repository.existsById(id.value());
+        return repository.existsByTransactionId(id.value());
     }
 
     @Override
     public Transaction save(Transaction tx) {
-        TransactionJpaEntity saved = repository.save(mapper.toEntity(tx));
-        return mapper.toDomain(saved);
+        try {
+            TransactionJpaEntity saved = repository.save(mapper.toEntity(tx));
+            return mapper.toDomain(saved);
+        } catch (DataIntegrityViolationException ex) {
+            if (isDuplicateTransactionIdViolation(ex)) {
+                throw new DuplicateTransactionPersistenceException(tx.id().value(), ex);
+            }
+            throw ex;
+        }
     }
 
     @Override
     public Optional<Transaction> findById(TransactionId id) {
-        return repository.findById(id.value())
+        return repository.findByTransactionId(id.value())
                 .map(mapper::toDomain);
+    }
+
+    private boolean isDuplicateTransactionIdViolation(DataIntegrityViolationException ex) {
+        Throwable cause = ex;
+        while (cause != null) {
+            String message = cause.getMessage();
+            if (message != null && message.contains("uk_transactions_transaction_id")) {
+                return true;
+            }
+            cause = cause.getCause();
+        }
+        return false;
     }
 }

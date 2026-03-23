@@ -11,12 +11,20 @@ import java.time.Instant;
         indexes = {
                 @Index(name = "idx_tx_account", columnList = "account_id"),
                 @Index(name = "idx_tx_occurred", columnList = "occurred_at")
+        },
+        uniqueConstraints = {
+                @UniqueConstraint(
+                        name = "uk_transactions_transaction_id",
+                        columnNames = "transaction_id")
         }
 )
 public class TransactionJpaEntity {
 
     @Id
-    @Column(name = "transactionId", nullable = false, updatable = false)
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column(name = "transaction_id", nullable = false, updatable = false)
     private String transactionId;
 
     @Column(name = "account_id", nullable = false)

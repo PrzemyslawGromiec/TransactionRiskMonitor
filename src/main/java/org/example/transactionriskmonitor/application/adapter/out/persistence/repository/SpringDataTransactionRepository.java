@@ -3,5 +3,9 @@ package org.example.transactionriskmonitor.application.adapter.out.persistence.r
 import org.example.transactionriskmonitor.application.adapter.out.persistence.entity.TransactionJpaEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
 
-public interface SpringDataTransactionRepository extends JpaRepository<TransactionJpaEntity, String> {
+import java.util.Optional;
+
+public interface SpringDataTransactionRepository extends JpaRepository<TransactionJpaEntity, Long> {
+    boolean existsByTransactionId(String transactionId);
+    Optional<TransactionJpaEntity> findByTransactionId(String transactionId);
 }

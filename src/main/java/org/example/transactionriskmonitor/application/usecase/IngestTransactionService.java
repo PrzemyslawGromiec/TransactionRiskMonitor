@@ -5,6 +5,7 @@ import org.example.transactionriskmonitor.application.port.in.IngestTransactionC
 import org.example.transactionriskmonitor.application.port.in.IngestTransactionUseCase;
 import org.example.transactionriskmonitor.application.port.out.*;
 import org.example.transactionriskmonitor.domain.event.HighRiskAlert;
+import org.example.transactionriskmonitor.domain.exception.DuplicateTransactionPersistenceException;
 import org.example.transactionriskmonitor.domain.model.*;
 import org.example.transactionriskmonitor.domain.service.RiskScorer;
 import org.slf4j.Logger;
@@ -16,6 +17,9 @@ import java.util.Currency;
 
 @Service
 public class IngestTransactionService implements IngestTransactionUseCase {
+
+    private static final Logger log = LoggerFactory.getLogger(IngestTransactionService.class);
+
     private final TransactionRepositoryPort txRepo;
     private final RiskAssessmentRepositoryPort riskAssessmentRepo;
     private final AccountProfilePort profilePort;
@@ -25,8 +29,6 @@ public class IngestTransactionService implements IngestTransactionUseCase {
     private final AlertPublisherPort alertPublisher;
     private final RiskScorer riskScorer;
     private final RiskPolicy riskPolicy;
-
-    private static final Logger log = LoggerFactory.getLogger(IngestTransactionService.class);
 
     public IngestTransactionService(
             TransactionRepositoryPort txRepo,
@@ -59,9 +61,10 @@ public class IngestTransactionService implements IngestTransactionUseCase {
         Money money = new Money(cmd.amount(), Currency.getInstance(cmd.currency()));
         Instant occurredAt = cmd.occurredAt();
 
-        log.info("Ingest started. transactionId={}, accountId={}", cmd.transactionId(), cmd.accountId());
+        log.info("Ingest started. transactionId={}, accountId={}", txId.value(), accountId.value());
 
         if (txRepo.exists(txId)) {
+            log.info("Duplicate transaction detected before save. transactionId={}", txId.value());
             return new IngestResult.Duplicated(txId.value());
         }
 
@@ -70,7 +73,7 @@ public class IngestTransactionService implements IngestTransactionUseCase {
         boolean firstTimeMerchant = merchantHistoryPort.isFirstTimeMerchant(accountId, merchantId);
         AccountProfile profile = profilePort.load(accountId);
         LocationChange locationChange = locationHistoryPort.observe(accountId, occurredAt, country);
-        VelocityStats velocity = velocityPort.observe(accountId, occurredAt, money, tx.merchantId());
+        VelocityStats velocity = velocityPort.observe(accountId, occurredAt, money, merchantId);
 
         RiskAssessment assessment = riskScorer.score(
                 tx,
@@ -88,7 +91,13 @@ public class IngestTransactionService implements IngestTransactionUseCase {
                 riskPolicy.highRiskThreshold()
         );
 
-        txRepo.save(tx);
+        try {
+            txRepo.save(tx);
+        } catch (DuplicateTransactionPersistenceException ex) {
+            log.info("Duplicate transaction detected by database constraint. transactionId={}", txId.value());
+            return new IngestResult.Duplicated(txId.value());
+        }
+
         riskAssessmentRepo.save(txId, assessment);
 
         if (assessment.riskScore().value() >= riskPolicy.highRiskThreshold()) {
@@ -99,15 +108,22 @@ public class IngestTransactionService implements IngestTransactionUseCase {
                     assessment.reasons(),
                     occurredAt
             );
+
             alertPublisher.publish(alert);
+
+            log.warn(
+                    "High-risk alert published. transactionId={}, accountId={}, riskScore={}, reasons={}",
+                    txId.value(),
+                    accountId.value(),
+                    assessment.riskScore().value(),
+                    assessment.reasons()
+            );
         }
 
-        log.warn(
-                "High-risk alert published. transactionId={}, accountId={}, riskScore={}, reasons={}",
+        log.info(
+                "Ingest completed. transactionId={}, status=ACCEPTED, riskScore={}",
                 txId.value(),
-                accountId.value(),
-                assessment.riskScore().value(),
-                assessment.reasons()
+                assessment.riskScore().value()
         );
 
         return new IngestResult.Accepted(txId.value(), assessment.riskScore());
