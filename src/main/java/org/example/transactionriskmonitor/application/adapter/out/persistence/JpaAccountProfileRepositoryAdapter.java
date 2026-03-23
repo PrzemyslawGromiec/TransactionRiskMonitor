@@ -1,6 +1,7 @@
 package org.example.transactionriskmonitor.application.adapter.out.persistence;
 
 import org.example.transactionriskmonitor.application.adapter.out.persistence.mapper.AccountProfilePersistenceMapper;
+import org.example.transactionriskmonitor.domain.exception.AccountProfileNotFoundException;
 import org.springframework.stereotype.Component;
 import org.springframework.context.annotation.Profile;
 import org.example.transactionriskmonitor.application.port.out.AccountProfilePort;
@@ -26,8 +27,9 @@ public class JpaAccountProfileRepositoryAdapter implements AccountProfilePort {
 
         AccountProfileJpaEntity entity = repository.findById(accountId.value())
                 .orElseThrow(() ->
-                        new IllegalArgumentException(
-                                "No account profile found for accountId: " + accountId));
+                        new AccountProfileNotFoundException(
+                                "No account profile for accountId: " + accountId.value()
+                        ));
 
         return mapper.toDomain(entity);
     }
