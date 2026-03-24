@@ -2,11 +2,17 @@ package org.example.transactionriskmonitor.application.query.repository;
 
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
+import jakarta.persistence.TypedQuery;
 import jakarta.persistence.criteria.*;
 import org.example.transactionriskmonitor.application.adapter.out.persistence.entity.RiskAssessmentJpaEntity;
 import org.example.transactionriskmonitor.application.adapter.out.persistence.entity.TransactionJpaEntity;
 import org.example.transactionriskmonitor.application.query.dto.TransactionSearchCriteria;
 import org.example.transactionriskmonitor.application.query.dto.TransactionSearchResponse;
+import org.example.transactionriskmonitor.domain.exception.BadRequestException;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Repository;
 
 import java.util.ArrayList;
@@ -19,14 +25,86 @@ public class TransactionQueryRepositoryImpl implements TransactionQueryRepositor
     private EntityManager entityManager;
 
     @Override
-    public List<TransactionSearchResponse> findByCriteria(TransactionSearchCriteria criteria) {
+    public Page<TransactionSearchResponse> findByCriteria(
+            TransactionSearchCriteria criteria,
+            Pageable pageable
+    ) {
         CriteriaBuilder cb = entityManager.getCriteriaBuilder();
         CriteriaQuery<TransactionSearchResponse> query = cb.createQuery(TransactionSearchResponse.class);
-
         Root<TransactionJpaEntity> transaction = query.from(TransactionJpaEntity.class);
         Root<RiskAssessmentJpaEntity> assessment = query.from(RiskAssessmentJpaEntity.class);
 
+        List<Predicate> predicates = buildPredicates(criteria, cb, transaction, assessment);
+
+        query.select(cb.construct(
+                TransactionSearchResponse.class,
+                transaction.get("id"),
+                transaction.get("transactionId"),
+                transaction.get("accountId"),
+                assessment.get("riskScore")
+        ));
+
+        query.where(predicates.toArray(new Predicate[0]));
+
+        if (pageable.getSort().isSorted()) {
+            query.orderBy(buildOrders(cb, transaction, assessment, pageable.getSort()));
+        } else {
+            query.orderBy(cb.desc(transaction.get("occurredAt")));
+        }
+
+        TypedQuery<TransactionSearchResponse> typedQuery = entityManager.createQuery(query);
+        typedQuery.setFirstResult((int) pageable.getOffset());
+        typedQuery.setMaxResults(pageable.getPageSize());
+
+        List<TransactionSearchResponse> content = typedQuery.getResultList();
+        CriteriaQuery<Long> countQuery = cb.createQuery(Long.class);
+        Root<TransactionJpaEntity> countTransaction = countQuery.from(TransactionJpaEntity.class);
+        Root<RiskAssessmentJpaEntity> countAssessment = countQuery.from(RiskAssessmentJpaEntity.class);
+
+        List<Predicate> countPredicates = buildPredicates(criteria, cb, countTransaction, countAssessment);
+
+        countQuery.select(cb.count(countTransaction));
+        countQuery.where(countPredicates.toArray(new Predicate[0]));
+
+        Long total = entityManager.createQuery(countQuery).getSingleResult();
+        return new PageImpl<>(content, pageable, total);
+    }
+
+    private List<Order> buildOrders(
+            CriteriaBuilder cb,
+            Root<TransactionJpaEntity> transaction,
+            Root<RiskAssessmentJpaEntity> assessment,
+            Sort sort
+    ) {
+        List<Order> orders = new ArrayList<>();
+
+        for (Sort.Order sortOrder : sort) {
+            String property = sortOrder.getProperty();
+            boolean ascending = sortOrder.isAscending();
+
+            Path<?> path = switch (property) {
+                case "id" -> transaction.get("id");
+                case "transactionId" -> transaction.get("transactionId");
+                case "accountId" -> transaction.get("accountId");
+                case "occurredAt" -> transaction.get("occurredAt");
+                case "riskScore" -> assessment.get("riskScore");
+                default -> throw new BadRequestException("Unsupported sort field: " + property);
+            };
+
+            orders.add(ascending ? cb.asc(path) : cb.desc(path));
+        }
+
+        return orders;
+    }
+
+    private List<Predicate> buildPredicates(
+            TransactionSearchCriteria criteria,
+            CriteriaBuilder cb,
+            Root<TransactionJpaEntity> transaction,
+            Root<RiskAssessmentJpaEntity> assessment
+    ) {
         List<Predicate> predicates = new ArrayList<>();
+
         predicates.add(cb.equal(transaction.get("transactionId"), assessment.get("transactionId")));
 
         if (criteria.transactionId() != null && !criteria.transactionId().isBlank()) {
@@ -72,16 +150,6 @@ public class TransactionQueryRepositoryImpl implements TransactionQueryRepositor
             ));
         }
 
-        query.select(cb.construct(
-                TransactionSearchResponse.class,
-                transaction.get("id"),
-                transaction.get("transactionId"),
-                transaction.get("accountId"),
-                assessment.get("riskScore")
-        ));
-
-        query.where(predicates.toArray(new Predicate[0]));
-
-        return entityManager.createQuery(query).getResultList();
+        return predicates;
     }
 }
