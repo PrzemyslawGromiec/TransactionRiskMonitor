@@ -2,25 +2,35 @@
 
 ## Overview
 
-This project implements a **real-time transaction risk monitoring engine** designed to analyse financial transactions and assign a fraud risk score based on behavioural signals.
+This project implements a **real-time transaction risk monitoring engine** that evaluates financial transactions and assigns a fraud risk score based on behavioural signals.
 
-The system evaluates incoming transactions using a set of domain rules such as transaction amount, account status, transaction velocity, geographic anomalies, and merchant history.
+The system processes incoming transactions, analyses contextual data (account profile, velocity, location, merchant history), and produces a **risk assessment** used to detect potentially fraudulent activity.
 
-The application follows **Hexagonal Architecture (Ports and Adapters)** to keep the core domain logic independent from infrastructure such as databases, APIs, or messaging systems.
-
-This architecture allows the risk engine to remain easily testable, extensible, and adaptable to different runtime environments.
+It is designed using **Hexagonal Architecture (Ports & Adapters)** to ensure strong separation between domain logic and infrastructure.
 
 ---
 
-# Architecture
+## Key Features
 
-The system is structured into four main layers.
+- Real-time transaction risk scoring
+- Idempotent transaction ingestion
+- Behaviour-based fraud detection signals
+- Dynamic query API for analysing transactions and risk assessments
+- PostgreSQL persistence with JPA
+- Modular, testable architecture
+
+---
+
+## Architecture
+
+The system follows **Hexagonal Architecture**, separating core business logic from external concerns.
 
 ### Domain Layer
 
-The **domain layer** contains the core business logic and rules for evaluating transaction risk.
+Contains all core business logic and models.
 
-Key domain concepts include:
+**Key concepts:**
+
 
 * `Transaction`
 * `AccountProfile`
@@ -31,264 +41,226 @@ Key domain concepts include:
 * `RiskAssessment`
 * `RiskReason`
 
-The central domain service is:
 
-```
-RiskScorer
-```
+**Core service:**
 
-which calculates a risk score based on behavioural signals.
+
+`RiskScorer`
+
+Responsible for evaluating transactions and calculating risk scores.
 
 ---
 
 ### Application Layer
 
-The application layer orchestrates the use case of ingesting and evaluating transactions.
+Coordinates use cases and orchestrates domain interactions.
 
-Main use case:
+**Main use case:**
 
-```
-IngestTransactionService
-```
+`IngestTransactionService`
 
-Responsibilities:
 
-1. Convert incoming command data into domain objects
-2. Perform idempotency checks
-3. Retrieve behavioural context via outbound ports
-4. Invoke the domain risk scoring engine
+**Responsibilities:**
+
+1. Map input → domain objects
+2. Enforce idempotency
+3. Retrieve contextual signals via ports
+4. Execute risk scoring
 5. Persist results
-6. Publish alerts for high-risk transactions
-
-Inbound command:
-
-```
-IngestTransactionCommand
-```
-
-Result types:
-
-```
-Accepted
-Duplicated
-```
+6. Publish alerts
 
 ---
 
 ### Ports
 
-Ports define how the domain interacts with the outside world.
+Define interactions between domain and infrastructure.
 
-Outbound ports:
 
-```
-TransactionRepositoryPort
-AccountProfilePort
-VelocityPort
-LocationHistoryPort
-MerchantHistoryPort
-AlertPublisherPort
-```
+* `TransactionRepositoryPort`
+* `AccountProfilePort`
+* `VelocityPort`
+* `LocationHistoryPort`
+* `MerchantHistoryPort`
+* `AlertPublisherPort`
 
-These ports provide the contextual data required to evaluate risk.
 
 ---
 
 ### Adapters
 
-Adapters implement the ports and connect the application to infrastructure.
+Provide concrete implementations of ports.
 
-Current implementations include:
+Includes:
 
-```
-InMemoryTransactionRepository
-InMemoryAccountProfileAdapter
-InMemoryVelocityAdapter
-InMemoryLocationHistoryAdapter
-InMemoryMerchantHistoryAdapter
-ConsoleAlertPublisher
-```
+* `JPA repositories (PostgreSQL)`
+* `In-memory adapters (for testing/demo)`
+* `ConsoleAlertPublisher`
 
-These adapters simulate infrastructure for testing and demonstration purposes.
 
 ---
 
-# Fraud Detection Signals
+## Persistence
 
-The risk engine currently evaluates the following signals.
+The system uses **PostgreSQL with JPA/Hibernate** for persistence.
+
+- `transactions` table stores transaction data
+- `risk_assessments` table stores evaluation results
+- Unique constraint on `transaction_id` ensures idempotency
+- Indexes improve query performance
+
+---
+
+## Query Module (Read Side)
+
+The system includes a **dynamic query API** for analysing transactions and risk assessments.
+
+### Features
+
+- Flexible filtering:
+    - `transactionId`
+    - `accountId`
+    - `riskScore range`
+    - `reason`
+    - `occurredAt range`
+- Cross-entity querying (`transactions` + `risk_assessments`)
+- DTO projection (no entity exposure)
+- Criteria API-based dynamic query building
+
+### Example Endpoint
+
+
+GET /api/v1/transactions/search?reason=IMPOSSIBLE_TRAVEL&minRiskScore=40
+
+### Architecture
+
+Controller → Service → Validator → QueryRepository (Criteria API)
+
+This represents a **read model**, separated from ingestion (write flow).
+
+---
+
+## Fraud Detection Signals
+
+The risk engine evaluates multiple behavioural signals:
 
 ### High Transaction Amount
 
-Transactions above a defined threshold increase risk.
+`amount > 5000`
 
-```
-amount > 5000
-```
-
----
 
 ### New Account
-
-Accounts recently created are treated as higher risk.
-
----
+`Recently created accounts are considered higher risk.`
 
 ### High-Risk Country
-
-Transactions originating from predefined high-risk countries increase the score.
-
----
+`Transactions from predefined high-risk regions increase risk.`
 
 ### Transaction Velocity
 
-Multiple transactions within a short time window indicate suspicious behaviour.
+`5 transactions within 5 minutes`
 
-Example rule:
-
-```
->= 5 transactions within 5 minutes
-```
-
----
 
 ### Impossible Travel
-
-If a transaction occurs in a location that is geographically impossible given recent activity, risk increases.
-
----
+`Geographically inconsistent transactions increase risk.`
 
 ### First-Time Merchant
-
-Transactions with merchants never previously used by the account increase risk.
-
----
+`New merchant interactions increase risk.`
 
 ### Account Trust Status
 
-Accounts marked as:
+* `FLAGGED → increases risk`
+* `TRUSTED → reduces risk`
 
-```
-FLAGGED
-```
-
-receive additional risk.
-
-Accounts marked as:
-
-```
-TRUSTED
-```
-
-receive reduced risk.
 
 ---
 
-# Risk Score
+## Risk Scoring
 
-The system generates a risk score between:
+Risk score range:
 
-```
-0 – 100
-```
+`0 – 100`
 
-Transactions exceeding the threshold:
 
-```
->= 80
-```
+Threshold:
 
-are considered **high risk** and trigger an alert.
+`80 → HIGH RISK`
+
+
+High-risk transactions trigger alerts.
 
 ---
 
-# Transaction Processing Flow
+## Transaction Processing Flow
 
-When a transaction is ingested the following steps occur:
-
-1. A transaction command enters the system.
-2. The use case converts raw input into domain objects.
-3. The system checks if the transaction has already been processed (idempotency).
-4. Account profile data is retrieved.
-5. Transaction velocity statistics are retrieved.
-6. Recent location history is analysed.
-7. Merchant history is checked.
-8. The domain risk engine calculates a risk score.
-9. The transaction and score are stored.
-10. If the score exceeds the threshold, an alert is published.
+* `Receive transaction command`
+* `Convert to domain model`
+* `Check idempotency`
+* `Load account profile`
+* `Evaluate velocity & location signals`
+* `Analyse merchant history`
+* `Calculate risk score`
+* `Persist transaction & assessment`
+* `Publish alert (if high risk)`
 
 ---
 
-# Running the Example
+## Example Output
 
-The project includes a small demonstration runner:
 
-```
-AppRunner
-```
+* `Accepted(transactionId=tx-1, riskScore=85)`
+* `Accepted(transactionId=tx-2, riskScore=90)`
 
-It simulates a stream of transactions and prints the resulting risk evaluations.
-
-Example output:
-
-```
-Accepted(transactionId=tx-1, riskScore=85)
-Accepted(transactionId=tx-2, riskScore=90)
-Accepted(transactionId=tx-3, riskScore=88)
-```
-
-High-risk transactions will also produce alerts.
 
 ---
 
-# Testing
+## Testing
 
-The project includes unit tests covering:
+Includes unit tests for:
 
-* Risk scoring logic
-* Transaction ingestion workflow
-* Idempotency guarantees
-* Alert publishing behaviour
 
-Example test classes:
+* RiskScorerTest
+* IngestTransactionServiceTest
 
-```
-RiskScorerTest
-IngestTransactionServiceTest
-```
 
----
+Covers:
 
-# Technologies
-
-The system is implemented using:
-
-* Java 21
-* JUnit 5
-* Hexagonal Architecture
-* Domain-Driven Design principles
+- scoring logic
+- ingestion flow
+- idempotency
+- alert triggering
 
 ---
 
-# Future Improvements
+## Technologies
 
-Possible extensions include:
-
-* Real database persistence
-* Kafka transaction ingestion
-* Machine learning fraud models
-* Merchant category risk signals
-* Geolocation distance calculations
-* Distributed velocity tracking
+- Java 21
+- Spring Boot
+- JPA / Hibernate (Criteria API)
+- PostgreSQL
+- JUnit 5
+- Hexagonal Architecture
+- Domain-Driven Design
 
 ---
 
-# Purpose
+## Future Improvements
 
-This project demonstrates how a **modular and extensible fraud detection engine** can be implemented using modern software architecture principles.
+- Kafka-based ingestion
+- Distributed velocity tracking
+- ML-based fraud detection
+- Improved geolocation analysis
+- Optimised storage for risk reasons (array / join table)
+- Pagination and sorting in query API
 
-The design emphasises:
+---
 
-* separation of concerns
-* domain-centric modelling
-* testability
-* infrastructure independence
+## Purpose
+
+This project demonstrates how to build a **scalable, modular fraud detection system** using modern backend architecture.
+
+Key principles:
+
+- separation of concerns
+- domain-driven design
+- testability
+- extensibility
+- production-ready structure  
