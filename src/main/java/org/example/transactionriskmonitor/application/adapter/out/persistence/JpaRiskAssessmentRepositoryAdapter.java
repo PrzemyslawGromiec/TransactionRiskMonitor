@@ -1,4 +1,4 @@
-package org.example.transactionriskmonitor.application;
+package org.example.transactionriskmonitor.application.adapter.out.persistence;
 
 import org.example.transactionriskmonitor.application.adapter.out.persistence.mapper.RiskAssessmentPersistenceMapper;
 import org.example.transactionriskmonitor.application.adapter.out.persistence.repository.SpringDataRiskAssessmentJpaRepository;
