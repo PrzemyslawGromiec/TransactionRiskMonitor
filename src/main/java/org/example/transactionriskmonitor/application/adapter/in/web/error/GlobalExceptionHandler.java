@@ -3,6 +3,7 @@ package org.example.transactionriskmonitor.application.adapter.in.web.error;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolationException;
 import org.example.transactionriskmonitor.domain.exception.AccountProfileNotFoundException;
+import org.example.transactionriskmonitor.domain.exception.BadRequestException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
@@ -162,6 +163,27 @@ public class GlobalExceptionHandler {
         );
 
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+    }
+
+    @ExceptionHandler(BadRequestException.class)
+    public ResponseEntity<ApiErrorResponse> handleBadRequest(
+            BadRequestException ex,
+            HttpServletRequest request
+    ) {
+        String correlationId = getCorrelationId();
+        log.warn("Bad request. path={}, correlationId={}, message={}",
+                request.getRequestURI(), correlationId, ex.getMessage());
+
+        ApiErrorResponse response = ApiErrorResponse.of(
+                HttpStatus.BAD_REQUEST.value(),
+                HttpStatus.BAD_REQUEST.getReasonPhrase(),
+                "BAD_REQUEST",
+                ex.getMessage(),
+                request.getRequestURI(),
+                correlationId
+        );
+
+        return ResponseEntity.badRequest().body(response);
     }
 
     private String getCorrelationId() {
