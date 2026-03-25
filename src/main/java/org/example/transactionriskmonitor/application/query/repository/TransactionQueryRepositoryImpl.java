@@ -18,11 +18,20 @@ import org.springframework.stereotype.Repository;
 import java.util.ArrayList;
 import java.util.List;
 
+/* This approach is used as it's:
+ * - hexagonal architecture
+ * - dependency inversion
+ * - custom query
+ */
+
 @Repository
-public class TransactionQueryRepositoryImpl implements TransactionQueryRepository{
+public class TransactionQueryRepositoryImpl implements TransactionQueryRepository {
 
     @PersistenceContext
     private EntityManager entityManager;
+    /* Entity manager is a tool that talks to the database (save, update, delete etc.)
+     * PersistenceContext injects an EntityManager and handles its lifecycle (create, reuse, close)
+     */
 
     @Override
     public Page<TransactionSearchResponse> findByCriteria(
@@ -30,10 +39,13 @@ public class TransactionQueryRepositoryImpl implements TransactionQueryRepositor
             Pageable pageable
     ) {
         CriteriaBuilder cb = entityManager.getCriteriaBuilder();
+        /* I am building query here, defining its structure */
         CriteriaQuery<TransactionSearchResponse> query = cb.createQuery(TransactionSearchResponse.class);
         Root<TransactionJpaEntity> transaction = query.from(TransactionJpaEntity.class);
         Root<RiskAssessmentJpaEntity> assessment = query.from(RiskAssessmentJpaEntity.class);
 
+        /* Predicate is a condition in SQL, boolean expression tree
+         * This will be a list of boolean conditions that will be combined into a WHERE clause */
         List<Predicate> predicates = buildPredicates(criteria, cb, transaction, assessment);
 
         query.select(cb.construct(
@@ -44,6 +56,8 @@ public class TransactionQueryRepositoryImpl implements TransactionQueryRepositor
                 assessment.get("riskScore")
         ));
 
+        /* Java needs to convert List into Predicate[] for where()
+         * new Predicate[0] as JVM creates correctly sized array internally */
         query.where(predicates.toArray(new Predicate[0]));
 
         if (pageable.getSort().isSorted()) {
@@ -52,17 +66,20 @@ public class TransactionQueryRepositoryImpl implements TransactionQueryRepositor
             query.orderBy(cb.desc(transaction.get("occurredAt")));
         }
 
+        /* This creates executable query that will interact with DB */
         TypedQuery<TransactionSearchResponse> typedQuery = entityManager.createQuery(query);
         typedQuery.setFirstResult((int) pageable.getOffset());
         typedQuery.setMaxResults(pageable.getPageSize());
 
+        /* This executes the main query */
         List<TransactionSearchResponse> content = typedQuery.getResultList();
+        /* This gives me a total number of matching rows */
         CriteriaQuery<Long> countQuery = cb.createQuery(Long.class);
         Root<TransactionJpaEntity> countTransaction = countQuery.from(TransactionJpaEntity.class);
         Root<RiskAssessmentJpaEntity> countAssessment = countQuery.from(RiskAssessmentJpaEntity.class);
 
         List<Predicate> countPredicates = buildPredicates(criteria, cb, countTransaction, countAssessment);
-
+        /* Count how many matching rows exists and apply same WHERE conditions */
         countQuery.select(cb.count(countTransaction));
         countQuery.where(countPredicates.toArray(new Predicate[0]));
 
