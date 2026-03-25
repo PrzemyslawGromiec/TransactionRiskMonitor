@@ -9,6 +9,7 @@ import org.example.transactionriskmonitor.application.adapter.out.persistence.en
 import org.example.transactionriskmonitor.application.query.dto.TransactionSearchCriteria;
 import org.example.transactionriskmonitor.application.query.dto.TransactionSearchResponse;
 import org.example.transactionriskmonitor.domain.exception.BadRequestException;
+import org.example.transactionriskmonitor.domain.model.RiskReason;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
@@ -91,7 +92,7 @@ public class TransactionQueryRepositoryImpl implements TransactionQueryRepositor
 
         Long total = entityManager.createQuery(countQuery).getSingleResult();
         log.debug("Query returned {} results, total={}", content.size(), total);
-        
+
         return new PageImpl<>(content, pageable, total);
     }
 
@@ -140,11 +141,14 @@ public class TransactionQueryRepositoryImpl implements TransactionQueryRepositor
             predicates.add(cb.equal(transaction.get("accountId"), criteria.accountId()));
         }
 
-        if (criteria.reason() != null && !criteria.reason().isBlank()) {
-            Expression<String> reasonsWithCommas =
-                    cb.concat(cb.concat(",", assessment.get("reasons")), ",");
+        if (criteria.reasons() != null && !criteria.reasons().isEmpty()) {
+            List<Predicate> reasonPredicates = new ArrayList<>();
 
-            predicates.add(cb.like(reasonsWithCommas, "%," + criteria.reason() + ",%"));
+            for (RiskReason reason : criteria.reasons()) {
+                Expression<String> reasonsWithComma = cb.concat(cb.concat(",", assessment.get("reasons")), ",");
+                reasonPredicates.add(cb.like(reasonsWithComma, "%," + reason.name() + ",%"));
+            }
+            predicates.add(cb.or(reasonPredicates.toArray(new Predicate[0])));
         }
 
         if (criteria.minRiskScore() != null) {
