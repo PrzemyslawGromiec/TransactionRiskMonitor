@@ -9,6 +9,8 @@ import org.example.transactionriskmonitor.application.adapter.out.persistence.en
 import org.example.transactionriskmonitor.application.query.dto.TransactionSearchCriteria;
 import org.example.transactionriskmonitor.application.query.dto.TransactionSearchResponse;
 import org.example.transactionriskmonitor.domain.exception.BadRequestException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
@@ -26,6 +28,7 @@ import java.util.List;
 
 @Repository
 public class TransactionQueryRepositoryImpl implements TransactionQueryRepository {
+    private static final Logger log = LoggerFactory.getLogger(TransactionQueryRepositoryImpl.class);
 
     @PersistenceContext
     private EntityManager entityManager;
@@ -43,10 +46,12 @@ public class TransactionQueryRepositoryImpl implements TransactionQueryRepositor
         CriteriaQuery<TransactionSearchResponse> query = cb.createQuery(TransactionSearchResponse.class);
         Root<TransactionJpaEntity> transaction = query.from(TransactionJpaEntity.class);
         Root<RiskAssessmentJpaEntity> assessment = query.from(RiskAssessmentJpaEntity.class);
+        log.debug("Executing transaction search with criteria={}, pageable={}", criteria, pageable);
 
         /* Predicate is a condition in SQL, boolean expression tree
          * This will be a list of boolean conditions that will be combined into a WHERE clause */
         List<Predicate> predicates = buildPredicates(criteria, cb, transaction, assessment);
+        log.debug("Built {} predicates for transaction query", predicates.size());
 
         query.select(cb.construct(
                 TransactionSearchResponse.class,
@@ -70,6 +75,7 @@ public class TransactionQueryRepositoryImpl implements TransactionQueryRepositor
         TypedQuery<TransactionSearchResponse> typedQuery = entityManager.createQuery(query);
         typedQuery.setFirstResult((int) pageable.getOffset());
         typedQuery.setMaxResults(pageable.getPageSize());
+        log.debug("Pagination applied: offset={}, size={}", pageable.getOffset(), pageable.getPageSize());
 
         /* This executes the main query */
         List<TransactionSearchResponse> content = typedQuery.getResultList();
@@ -84,6 +90,8 @@ public class TransactionQueryRepositoryImpl implements TransactionQueryRepositor
         countQuery.where(countPredicates.toArray(new Predicate[0]));
 
         Long total = entityManager.createQuery(countQuery).getSingleResult();
+        log.debug("Query returned {} results, total={}", content.size(), total);
+        
         return new PageImpl<>(content, pageable, total);
     }
 
