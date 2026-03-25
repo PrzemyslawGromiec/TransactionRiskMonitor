@@ -6,6 +6,7 @@ import jakarta.persistence.TypedQuery;
 import jakarta.persistence.criteria.*;
 import org.example.transactionriskmonitor.application.adapter.out.persistence.entity.RiskAssessmentJpaEntity;
 import org.example.transactionriskmonitor.application.adapter.out.persistence.entity.TransactionJpaEntity;
+import org.example.transactionriskmonitor.application.query.ReasonMode;
 import org.example.transactionriskmonitor.application.query.dto.TransactionSearchCriteria;
 import org.example.transactionriskmonitor.application.query.dto.TransactionSearchResponse;
 import org.example.transactionriskmonitor.domain.exception.BadRequestException;
@@ -142,13 +143,24 @@ public class TransactionQueryRepositoryImpl implements TransactionQueryRepositor
         }
 
         if (criteria.reasons() != null && !criteria.reasons().isEmpty()) {
-            List<Predicate> reasonPredicates = new ArrayList<>();
+            Expression<String> reasonsWithCommas =
+                    cb.concat(cb.concat(",", assessment.get("reasons")), ",");
 
-            for (RiskReason reason : criteria.reasons()) {
-                Expression<String> reasonsWithComma = cb.concat(cb.concat(",", assessment.get("reasons")), ",");
-                reasonPredicates.add(cb.like(reasonsWithComma, "%," + reason.name() + ",%"));
+            if (criteria.reasonMode() == ReasonMode.ALL) {
+                // AND logic
+                for (RiskReason reason : criteria.reasons()) {
+                    predicates.add(cb.like(reasonsWithCommas, "%," + reason.name() + ",%"));
+                }
+
+            } else {
+                // default ANY
+                List<Predicate> reasonPredicates = new ArrayList<>();
+                for (RiskReason reason : criteria.reasons()) {
+                    reasonPredicates.add(cb.like(reasonsWithCommas, "%," + reason.name() + ",%"));
+                }
+
+                predicates.add(cb.or(reasonPredicates.toArray(new Predicate[0])));
             }
-            predicates.add(cb.or(reasonPredicates.toArray(new Predicate[0])));
         }
 
         if (criteria.minRiskScore() != null) {
