@@ -2,13 +2,16 @@ package org.example.transactionriskmonitor.application.query.repository;
 
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
+import jakarta.persistence.Tuple;
 import jakarta.persistence.TypedQuery;
 import jakarta.persistence.criteria.*;
 import org.example.transactionriskmonitor.application.adapter.out.persistence.entity.RiskAssessmentJpaEntity;
 import org.example.transactionriskmonitor.application.adapter.out.persistence.entity.TransactionJpaEntity;
 import org.example.transactionriskmonitor.application.query.ReasonMode;
+import org.example.transactionriskmonitor.application.query.dto.TransactionReasonRow;
 import org.example.transactionriskmonitor.application.query.dto.TransactionSearchCriteria;
 import org.example.transactionriskmonitor.application.query.dto.TransactionSearchResponse;
+import org.example.transactionriskmonitor.application.query.dto.TransactionSearchRow;
 import org.example.transactionriskmonitor.domain.exception.BadRequestException;
 import org.example.transactionriskmonitor.domain.model.RiskReason;
 import org.slf4j.Logger;
@@ -19,13 +22,13 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Repository;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 
-/* This approach is used as it's:
- * - hexagonal architecture
- * - dependency inversion
- * - custom query
+/* Custom repository to:
+ * use filters from TransactionSearchCriteria
+ * build dynamic SQL query with JPA Criteria API (Java Persistence API)
+ * fetch matching transactions
+ * and return a paginated response
  */
 
 @Repository
@@ -35,17 +38,18 @@ public class TransactionQueryRepositoryImpl implements TransactionQueryRepositor
     @PersistenceContext
     private EntityManager entityManager;
     /* Entity manager is a tool that talks to the database (save, update, delete etc.)
-     * PersistenceContext injects an EntityManager and handles its lifecycle (create, reuse, close)
-     */
+     PersistenceContext injects an EntityManager and handles its lifecycle (create, reuse, close) */
 
     @Override
     public Page<TransactionSearchResponse> findByCriteria(
             TransactionSearchCriteria criteria,
             Pageable pageable
     ) {
+        // Criteria API helps to build queries in Java instead of writing SQL
         CriteriaBuilder cb = entityManager.getCriteriaBuilder();
         /* I am building query here, defining its structure */
-        CriteriaQuery<TransactionSearchResponse> query = cb.createQuery(TransactionSearchResponse.class);
+        CriteriaQuery<TransactionSearchRow> query = cb.createQuery(TransactionSearchRow.class);
+        // Root represents a table (entity)
         Root<TransactionJpaEntity> transaction = query.from(TransactionJpaEntity.class);
         Root<RiskAssessmentJpaEntity> assessment = query.from(RiskAssessmentJpaEntity.class);
         log.debug("Executing transaction search with criteria={}, pageable={}", criteria, pageable);
@@ -56,7 +60,7 @@ public class TransactionQueryRepositoryImpl implements TransactionQueryRepositor
         log.debug("Built {} predicates for transaction query", predicates.size());
 
         query.select(cb.construct(
-                TransactionSearchResponse.class,
+                TransactionSearchRow.class,
                 transaction.get("id"),
                 transaction.get("transactionId"),
                 transaction.get("accountId"),
@@ -74,13 +78,19 @@ public class TransactionQueryRepositoryImpl implements TransactionQueryRepositor
         }
 
         /* This creates executable query that will interact with DB */
-        TypedQuery<TransactionSearchResponse> typedQuery = entityManager.createQuery(query);
+        TypedQuery<TransactionSearchRow> typedQuery = entityManager.createQuery(query);
         typedQuery.setFirstResult((int) pageable.getOffset());
         typedQuery.setMaxResults(pageable.getPageSize());
         log.debug("Pagination applied: offset={}, size={}", pageable.getOffset(), pageable.getPageSize());
 
         /* This executes the main query */
-        List<TransactionSearchResponse> content = typedQuery.getResultList();
+        List<TransactionSearchRow> rows = typedQuery.getResultList();
+        List<String> transactionIds = rows.stream()
+                .map(TransactionSearchRow::transactionId)
+                .toList();
+
+        Map<String, Set<RiskReason>> reasonsByTransactionId = fetchReasonsByTransactionIds(transactionIds);
+
         /* This gives me a total number of matching rows */
         CriteriaQuery<Long> countQuery = cb.createQuery(Long.class);
         Root<TransactionJpaEntity> countTransaction = countQuery.from(TransactionJpaEntity.class);
@@ -92,7 +102,20 @@ public class TransactionQueryRepositoryImpl implements TransactionQueryRepositor
         countQuery.where(countPredicates.toArray(new Predicate[0]));
 
         Long total = entityManager.createQuery(countQuery).getSingleResult();
-        log.debug("Query returned {} results, total={}", content.size(), total);
+        log.debug("Query returned {} results, total={}", rows.size(), total);
+
+        List<TransactionSearchResponse> content = rows.stream()
+                .map(row -> new TransactionSearchResponse(
+                        row.id(),
+                        row.transactionId(),
+                        row.accountId(),
+                        row.riskScore(),
+                        reasonsByTransactionId.getOrDefault(
+                                row.transactionId(),
+                                EnumSet.noneOf(RiskReason.class)
+                        )
+                ))
+                .toList();
 
         return new PageImpl<>(content, pageable, total);
     }
@@ -120,10 +143,11 @@ public class TransactionQueryRepositoryImpl implements TransactionQueryRepositor
 
             orders.add(ascending ? cb.asc(path) : cb.desc(path));
         }
-
         return orders;
     }
 
+    // Generic type <T> used because the logic is used for both main query and the count query which
+    // return different types
     private <T> List<Predicate> buildPredicates(
             TransactionSearchCriteria criteria,
             CriteriaBuilder cb,
@@ -172,7 +196,6 @@ public class TransactionQueryRepositoryImpl implements TransactionQueryRepositor
         }
 
         addReasonPredicates(criteria, cb, query, assessment, predicates);
-
         return predicates;
     }
 
@@ -198,6 +221,8 @@ public class TransactionQueryRepositoryImpl implements TransactionQueryRepositor
         }
     }
 
+    /* Subquery is a query inside another query
+     Reasons is a collection not a single field. */
     private <T> Predicate buildAnyReasonsPredicate(
             TransactionSearchCriteria criteria,
             CriteriaBuilder cb,
@@ -208,6 +233,7 @@ public class TransactionQueryRepositoryImpl implements TransactionQueryRepositor
         Root<RiskAssessmentJpaEntity> subAssessment = subquery.from(RiskAssessmentJpaEntity.class);
         SetJoin<RiskAssessmentJpaEntity, RiskReason> reasonJoin = subAssessment.joinSet("reasons");
 
+        // this will return transactionId that satisfy the condition below
         subquery.select(subAssessment.get("transactionId"))
                 .where(
                         cb.equal(subAssessment.get("transactionId"), assessment.get("transactionId")),
@@ -257,8 +283,38 @@ public class TransactionQueryRepositoryImpl implements TransactionQueryRepositor
         totalReasonsSubquery.select(cb.countDistinct(reasonJoin))
                 .where(cb.equal(subAssessment.get("transactionId"), assessment.get("transactionId")));
 
+        // check is the number of reasons in DB equal to the number of requested reasons
         Predicate exactCount = cb.equal(totalReasonsSubquery, (long) criteria.reasons().size());
-
         return cb.and(allRequestedPresent, exactCount);
+    }
+
+    private Map<String, Set<RiskReason>> fetchReasonsByTransactionIds(List<String> transactionIds) {
+        if (transactionIds.isEmpty()) {
+            return Map.of();
+        }
+
+        CriteriaBuilder cb = entityManager.getCriteriaBuilder();
+        CriteriaQuery<TransactionReasonRow> query = cb.createQuery(TransactionReasonRow.class);
+        Root<RiskAssessmentJpaEntity> assessment = query.from(RiskAssessmentJpaEntity.class);
+        SetJoin<RiskAssessmentJpaEntity, RiskReason> reasonJoin = assessment.joinSet("reasons");
+
+        query.select(cb.construct(
+                TransactionReasonRow.class,
+                assessment.get("transactionId"),
+                reasonJoin
+        ));
+
+        query.where(assessment.get("transactionId").in(transactionIds));
+
+        List<TransactionReasonRow> rows = entityManager.createQuery(query).getResultList();
+        Map<String, Set<RiskReason>> reasonsByTransactionId = new HashMap<>();
+
+        for (TransactionReasonRow row : rows) {
+            reasonsByTransactionId
+                    .computeIfAbsent(row.transactionId(), key -> EnumSet.noneOf(RiskReason.class))
+                    .add(row.reason());
+        }
+
+        return reasonsByTransactionId;
     }
 }
