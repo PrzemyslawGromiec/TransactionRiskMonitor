@@ -1,5 +1,6 @@
 package org.example.transactionriskmonitor.application.adapter.out.persistence;
 
+import org.example.transactionriskmonitor.application.adapter.out.persistence.entity.RiskAssessmentJpaEntity;
 import org.example.transactionriskmonitor.application.adapter.out.persistence.mapper.RiskAssessmentPersistenceMapper;
 import org.example.transactionriskmonitor.application.adapter.out.persistence.repository.SpringDataRiskAssessmentJpaRepository;
 import org.example.transactionriskmonitor.application.port.out.RiskAssessmentRepositoryPort;
@@ -8,6 +9,7 @@ import org.example.transactionriskmonitor.domain.model.TransactionId;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Repository;
 
+import java.time.Instant;
 import java.util.Optional;
 
 @Repository
@@ -27,7 +29,12 @@ public class JpaRiskAssessmentRepositoryAdapter implements RiskAssessmentReposit
 
     @Override
     public void save(TransactionId transactionId, RiskAssessment assessment) {
-        repository.save(mapper.toEntity(transactionId.value(), assessment));
+        RiskAssessmentJpaEntity entity = mapper.toEntity(
+                transactionId.value(),
+                assessment,
+                Instant.now()
+        );
+        repository.save(entity);
     }
 
     @Override

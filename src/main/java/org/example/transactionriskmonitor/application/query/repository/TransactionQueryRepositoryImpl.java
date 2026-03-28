@@ -52,7 +52,7 @@ public class TransactionQueryRepositoryImpl implements TransactionQueryRepositor
 
         /* Predicate is a condition in SQL, boolean expression tree
          * This will be a list of boolean conditions that will be combined into a WHERE clause */
-        List<Predicate> predicates = buildPredicates(criteria, cb, transaction, assessment);
+        List<Predicate> predicates = buildPredicates(criteria, cb, query, transaction, assessment);
         log.debug("Built {} predicates for transaction query", predicates.size());
 
         query.select(cb.construct(
@@ -86,7 +86,7 @@ public class TransactionQueryRepositoryImpl implements TransactionQueryRepositor
         Root<TransactionJpaEntity> countTransaction = countQuery.from(TransactionJpaEntity.class);
         Root<RiskAssessmentJpaEntity> countAssessment = countQuery.from(RiskAssessmentJpaEntity.class);
 
-        List<Predicate> countPredicates = buildPredicates(criteria, cb, countTransaction, countAssessment);
+        List<Predicate> countPredicates = buildPredicates(criteria, cb, countQuery, countTransaction, countAssessment);
         /* Count how many matching rows exists and apply same WHERE conditions */
         countQuery.select(cb.count(countTransaction));
         countQuery.where(countPredicates.toArray(new Predicate[0]));
@@ -124,9 +124,10 @@ public class TransactionQueryRepositoryImpl implements TransactionQueryRepositor
         return orders;
     }
 
-    private List<Predicate> buildPredicates(
+    private <T> List<Predicate> buildPredicates(
             TransactionSearchCriteria criteria,
             CriteriaBuilder cb,
+            CriteriaQuery<T> query,
             Root<TransactionJpaEntity> transaction,
             Root<RiskAssessmentJpaEntity> assessment
     ) {
@@ -140,27 +141,6 @@ public class TransactionQueryRepositoryImpl implements TransactionQueryRepositor
 
         if (criteria.accountId() != null && !criteria.accountId().isBlank()) {
             predicates.add(cb.equal(transaction.get("accountId"), criteria.accountId()));
-        }
-
-        if (criteria.reasons() != null && !criteria.reasons().isEmpty()) {
-            Expression<String> reasonsWithCommas =
-                    cb.concat(cb.concat(",", assessment.get("reasons")), ",");
-
-            if (criteria.reasonMode() == ReasonMode.ALL) {
-                // AND logic
-                for (RiskReason reason : criteria.reasons()) {
-                    predicates.add(cb.like(reasonsWithCommas, "%," + reason.name() + ",%"));
-                }
-
-            } else {
-                // default ANY
-                List<Predicate> reasonPredicates = new ArrayList<>();
-                for (RiskReason reason : criteria.reasons()) {
-                    reasonPredicates.add(cb.like(reasonsWithCommas, "%," + reason.name() + ",%"));
-                }
-
-                predicates.add(cb.or(reasonPredicates.toArray(new Predicate[0])));
-            }
         }
 
         if (criteria.minRiskScore() != null) {
@@ -191,6 +171,94 @@ public class TransactionQueryRepositoryImpl implements TransactionQueryRepositor
             ));
         }
 
+        addReasonPredicates(criteria, cb, query, assessment, predicates);
+
         return predicates;
+    }
+
+    private <T> void addReasonPredicates(
+            TransactionSearchCriteria criteria,
+            CriteriaBuilder cb,
+            CriteriaQuery<T> query,
+            Root<RiskAssessmentJpaEntity> assessment,
+            List<Predicate> predicates
+    ) {
+        if (criteria.reasons() == null || criteria.reasons().isEmpty()) {
+            return;
+        }
+
+        ReasonMode mode = criteria.reasonMode() != null
+                ? criteria.reasonMode()
+                : ReasonMode.ANY;
+
+        switch (mode) {
+            case ANY -> predicates.add(buildAnyReasonsPredicate(criteria, cb, query, assessment));
+            case ALL -> predicates.add(buildAllReasonsPredicate(criteria, cb, query, assessment));
+            case EXACT -> predicates.add(buildExactReasonsPredicate(criteria, cb, query, assessment));
+        }
+    }
+
+    private <T> Predicate buildAnyReasonsPredicate(
+            TransactionSearchCriteria criteria,
+            CriteriaBuilder cb,
+            CriteriaQuery<T> query,
+            Root<RiskAssessmentJpaEntity> assessment
+    ) {
+        Subquery<String> subquery = query.subquery(String.class);
+        Root<RiskAssessmentJpaEntity> subAssessment = subquery.from(RiskAssessmentJpaEntity.class);
+        SetJoin<RiskAssessmentJpaEntity, RiskReason> reasonJoin = subAssessment.joinSet("reasons");
+
+        subquery.select(subAssessment.get("transactionId"))
+                .where(
+                        cb.equal(subAssessment.get("transactionId"), assessment.get("transactionId")),
+                        reasonJoin.in(criteria.reasons())
+                );
+
+        return cb.exists(subquery);
+    }
+
+    private <T> Predicate buildAllReasonsPredicate(
+            TransactionSearchCriteria criteria,
+            CriteriaBuilder cb,
+            CriteriaQuery<T> query,
+            Root<RiskAssessmentJpaEntity> assessment
+    ) {
+        List<Predicate> existsPredicates = new ArrayList<>();
+
+        for (RiskReason reason : criteria.reasons()) {
+            Subquery<String> subquery = query.subquery(String.class);
+            Root<RiskAssessmentJpaEntity> subAssessment = subquery.from(RiskAssessmentJpaEntity.class);
+            SetJoin<RiskAssessmentJpaEntity, RiskReason> reasonJoin = subAssessment.joinSet("reasons");
+
+            subquery.select(subAssessment.get("transactionId"))
+                    .where(
+                            cb.equal(subAssessment.get("transactionId"), assessment.get("transactionId")),
+                            cb.equal(reasonJoin, reason)
+                    );
+
+            existsPredicates.add(cb.exists(subquery));
+        }
+
+        return cb.and(existsPredicates.toArray(new Predicate[0]));
+    }
+
+    private <T> Predicate buildExactReasonsPredicate(
+            TransactionSearchCriteria criteria,
+            CriteriaBuilder cb,
+            CriteriaQuery<T> query,
+            Root<RiskAssessmentJpaEntity> assessment
+    ) {
+        Predicate allRequestedPresent = buildAllReasonsPredicate(criteria, cb, query, assessment);
+
+        Subquery<Long> totalReasonsSubquery = query.subquery(Long.class);
+        Root<RiskAssessmentJpaEntity> subAssessment = totalReasonsSubquery.from(RiskAssessmentJpaEntity.class);
+        SetJoin<RiskAssessmentJpaEntity, RiskReason> reasonJoin = subAssessment.joinSet("reasons");
+
+        totalReasonsSubquery.select(cb.countDistinct(reasonJoin))
+                .where(cb.equal(subAssessment.get("transactionId"), assessment.get("transactionId")));
+
+        Predicate exactCount = cb.equal(totalReasonsSubquery, (long) criteria.reasons().size());
+
+        return cb.and(allRequestedPresent, exactCount);
     }
 }
