@@ -33,6 +33,20 @@ public class AccountProfileSeeder implements CommandLineRunner {
         ));
 
         repository.save(new AccountProfileJpaEntity(
+                "acc-1002",
+                false,
+                TrustStatus.NORMAL,
+                Set.of()
+        ));
+
+        repository.save(new AccountProfileJpaEntity(
+                "acc-1003",
+                false,
+                TrustStatus.TRUSTED,
+                Set.of("RU")
+        ));
+
+        repository.save(new AccountProfileJpaEntity(
                 "acc-2001",
                 true,
                 TrustStatus.NORMAL,
@@ -40,10 +54,45 @@ public class AccountProfileSeeder implements CommandLineRunner {
         ));
 
         repository.save(new AccountProfileJpaEntity(
+                "acc-2002",
+                true,
+                TrustStatus.NORMAL,
+                Set.of()
+        ));
+
+        repository.save(new AccountProfileJpaEntity(
+                "acc-2003",
+                true,
+                TrustStatus.NORMAL,
+                Set.of("NG", "PK", "IR")
+        ));
+
+        repository.save(new AccountProfileJpaEntity(
                 "acc-3001",
                 false,
                 TrustStatus.FLAGGED,
                 Set.of("RU", "IR")
+        ));
+
+        repository.save(new AccountProfileJpaEntity(
+                "acc-3002",
+                false,
+                TrustStatus.FLAGGED,
+                Set.of("RU", "IR", "KP")
+        ));
+
+        repository.save(new AccountProfileJpaEntity(
+                "acc-4001",
+                true,
+                TrustStatus.TRUSTED,
+                Set.of()
+        ));
+
+        repository.save(new AccountProfileJpaEntity(
+                "acc-5001",
+                false,
+                TrustStatus.NORMAL,
+                Set.of("NG", "PK", "RU", "IR")
         ));
     }
 }
