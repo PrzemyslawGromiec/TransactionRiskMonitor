@@ -5,6 +5,8 @@ import org.example.transactionriskmonitor.application.adapter.in.web.dto.IngestT
 import org.example.transactionriskmonitor.application.port.in.IngestResult;
 import org.example.transactionriskmonitor.application.port.in.IngestTransactionCommand;
 
+import java.util.Collections;
+
 public class IngestTransactionHttpMapper {
     public static IngestTransactionCommand toCommand(IngestTransactionHttpRequest request) {
         return new IngestTransactionCommand(
@@ -26,6 +28,7 @@ public class IngestTransactionHttpMapper {
                         accepted.transactionId(),
                         "ACCEPTED",
                         accepted.riskScore().value(),
+                        accepted.reasons(),
                         "Transaction accepted"
                 );
 
@@ -34,6 +37,7 @@ public class IngestTransactionHttpMapper {
                         duplicated.transactionId(),
                         "DUPLICATED",
                         null,
+                        Collections.emptySet(),
                         "Transaction already exists"
                 );
         };

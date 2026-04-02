@@ -126,6 +126,6 @@ public class IngestTransactionService implements IngestTransactionUseCase {
                 assessment.riskScore().value()
         );
 
-        return new IngestResult.Accepted(txId.value(), assessment.riskScore());
+        return new IngestResult.Accepted(txId.value(), assessment.riskScore(), assessment.reasons());
     }
 }

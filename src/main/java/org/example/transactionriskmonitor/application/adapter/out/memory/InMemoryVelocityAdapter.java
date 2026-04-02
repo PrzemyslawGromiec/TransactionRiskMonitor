@@ -12,32 +12,35 @@ import java.util.*;
 
 public final class InMemoryVelocityAdapter implements VelocityPort {
     private final Duration window;
-    private final Map<AccountId, Deque<TxTick>> byAccount = new HashMap<>();
+    private final Map<AccountId, Deque<TransactionEvent>> byAccount = new HashMap<>();
 
     public InMemoryVelocityAdapter(Duration window) {
         this.window = window;
     }
 
+    // tracking recent transactions for each account in memory and returning velocity stats for risk scoring
     @Override
     public VelocityStats observe(AccountId accountId, Instant occurredAt, Money amount, MerchantId merchantId) {
-        Deque<TxTick> txTickDeque = byAccount.computeIfAbsent(accountId, a -> new ArrayDeque<>());
+        Deque<TransactionEvent> recentTransactionsInWindow = byAccount.computeIfAbsent(accountId, a -> new ArrayDeque<>());
 
+        // anything older than this moment is no longer relevant
         Instant cutOff = occurredAt.minus(window);
-        while (!txTickDeque.isEmpty() && txTickDeque.peekFirst().occurredAt.isBefore(cutOff)) {
-            txTickDeque.removeFirst();
+        while (!recentTransactionsInWindow.isEmpty() && recentTransactionsInWindow.peekFirst().occurredAt.isBefore(cutOff)) {
+            recentTransactionsInWindow.removeFirst();
         }
 
-        txTickDeque.addLast(new TxTick(occurredAt, amount, merchantId));
+        recentTransactionsInWindow.addLast(new TransactionEvent(occurredAt, amount, merchantId));
 
+        // calculate total amount in the window and number of unique merchants in the window
         Money sum = Money.zero(amount.currency());
         Set<MerchantId> distinctMerchants = new HashSet<>();
-        for (TxTick t : txTickDeque) {
+        for (TransactionEvent t : recentTransactionsInWindow) {
             sum = sum.plus(t.amount());
-            distinctMerchants.add(merchantId);
+            distinctMerchants.add(t.merchantId);
         }
 
-        return new VelocityStats(txTickDeque.size(), sum, distinctMerchants.size());
+        return new VelocityStats(recentTransactionsInWindow.size(), sum, distinctMerchants.size());
     }
 
-    public record TxTick(Instant occurredAt, Money amount, MerchantId merchantId) {}
+    public record TransactionEvent(Instant occurredAt, Money amount, MerchantId merchantId) {}
 }
