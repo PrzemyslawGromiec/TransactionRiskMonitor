@@ -6,6 +6,7 @@ import org.example.transactionriskmonitor.application.port.in.IngestTransactionU
 import org.example.transactionriskmonitor.config.SeedAccounts;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Profile;
+import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
@@ -13,6 +14,7 @@ import java.time.Instant;
 
 @Component
 @Profile("postgres-demo")
+@Order(2)
 public class TransactionScenarioSeeder implements CommandLineRunner {
 
     private final IngestTransactionUseCase ingestTransactionUseCase;
@@ -37,6 +39,7 @@ public class TransactionScenarioSeeder implements CommandLineRunner {
         seedNewAccountTransactions(baseTime.plusSeconds(14400));
         seedDuplicateTransactions(baseTime.plusSeconds(18000));
         seedConflictingSignals(baseTime.plusSeconds(21600));
+        seedFlaggedHighRiskScenario(baseTime.plusSeconds(24000));
     }
 
     // normal transaction
@@ -146,9 +149,23 @@ public class TransactionScenarioSeeder implements CommandLineRunner {
                     "tx-conflict-" + i,
                     SeedAccounts.TRUSTED_RISKY_1,
                     200,
-                    "merchant-F",
+                    "merchant-6",
                     "RU",
                     base.plusSeconds(i * 10)
+            );
+        }
+    }
+
+    // combination of factors
+    private void seedFlaggedHighRiskScenario(Instant baseTime) {
+        for (int i = 0; i < 5; i++) {
+            ingest(
+                    "tx-flagged-" + i,
+                    SeedAccounts.FLAGGED_RISKY_1,
+                    150,
+                    "merchant-unique-" + i,
+                    "RU",
+                    baseTime.plusSeconds(i * 1800)
             );
         }
     }

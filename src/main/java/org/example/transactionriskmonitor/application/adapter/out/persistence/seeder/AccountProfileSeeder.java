@@ -6,12 +6,14 @@ import org.example.transactionriskmonitor.config.SeedAccounts;
 import org.example.transactionriskmonitor.domain.model.TrustStatus;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Profile;
+import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
 import java.util.Set;
 
 @Component
-@Profile("postgres-demo")
+@Profile({"postgres-demo", "postgres"})
+@Order(1)
 public class AccountProfileSeeder implements CommandLineRunner {
 
     private final SpringDataAccountProfileJpaRepository repository;

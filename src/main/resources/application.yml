@@ -1,6 +1,9 @@
 spring:
   profiles:
-    active: postgres
+    active: postgres-demo
+    group:
+      postgres-demo:
+        - postgres
 
 velocity:
   window:
