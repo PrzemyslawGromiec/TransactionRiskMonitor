@@ -63,7 +63,8 @@ public class TransactionQueryRepositoryImpl implements TransactionQueryRepositor
                 transaction.get("id"),
                 transaction.get("transactionId"),
                 transaction.get("accountId"),
-                assessment.get("riskScore")
+                assessment.get("riskScore"),
+                transaction.get("occurredAt")
         ));
 
         /* Java needs to convert List into Predicate[] for where()
@@ -112,7 +113,8 @@ public class TransactionQueryRepositoryImpl implements TransactionQueryRepositor
                         reasonsByTransactionId.getOrDefault(
                                 row.transactionId(),
                                 EnumSet.noneOf(RiskReason.class)
-                        )
+                        ),
+                        row.occurredAt()
                 ))
                 .toList();
 

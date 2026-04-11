@@ -2,6 +2,7 @@ package org.example.transactionriskmonitor.application.query.dto;
 
 import org.example.transactionriskmonitor.domain.model.RiskReason;
 
+import java.time.Instant;
 import java.util.Set;
 
 public record TransactionSearchResponse(
@@ -9,6 +10,7 @@ public record TransactionSearchResponse(
         String transactionId,
         String accountId,
         Integer riskScore,
-        Set<RiskReason> reasons
+        Set<RiskReason> reasons,
+        Instant occurredAt
 ) {
 }
