@@ -2,6 +2,7 @@ package org.example.transactionriskmonitor.application.adapter.out.persistence.s
 
 import org.example.transactionriskmonitor.application.adapter.out.persistence.entity.AccountProfileJpaEntity;
 import org.example.transactionriskmonitor.application.adapter.out.persistence.repository.SpringDataAccountProfileJpaRepository;
+import org.example.transactionriskmonitor.config.SeedAccounts;
 import org.example.transactionriskmonitor.domain.model.TrustStatus;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Profile;
@@ -10,7 +11,7 @@ import org.springframework.stereotype.Component;
 import java.util.Set;
 
 @Component
-@Profile("postgres")
+@Profile("postgres-demo")
 public class AccountProfileSeeder implements CommandLineRunner {
 
     private final SpringDataAccountProfileJpaRepository repository;
@@ -27,7 +28,7 @@ public class AccountProfileSeeder implements CommandLineRunner {
 
         //trusted and safe
         repository.save(new AccountProfileJpaEntity(
-                "acc-1001",
+                SeedAccounts.TRUSTED_SAFE_1,
                 false,
                 TrustStatus.TRUSTED,
                 Set.of()
@@ -35,7 +36,7 @@ public class AccountProfileSeeder implements CommandLineRunner {
 
         //normal and safe
         repository.save(new AccountProfileJpaEntity(
-                "acc-1002",
+                SeedAccounts.NORMAL_SAFE_1,
                 false,
                 TrustStatus.NORMAL,
                 Set.of()
@@ -43,7 +44,7 @@ public class AccountProfileSeeder implements CommandLineRunner {
 
         //trusted, risky country
         repository.save(new AccountProfileJpaEntity(
-                "acc-1003",
+                SeedAccounts.TRUSTED_RISKY_1,
                 false,
                 TrustStatus.TRUSTED,
                 Set.of("RU")
@@ -51,15 +52,23 @@ public class AccountProfileSeeder implements CommandLineRunner {
 
         //normal, risky country
         repository.save(new AccountProfileJpaEntity(
-                "acc-1004",
+                SeedAccounts.NORMAL_RISKY_1,
                 false,
                 TrustStatus.NORMAL,
                 Set.of("NG")
         ));
 
+        //normal, safe
+        repository.save(new AccountProfileJpaEntity(
+                SeedAccounts.NORMAL_SAFE_2,
+                false,
+                TrustStatus.NORMAL,
+                Set.of()
+        ));
+
         //new, normal, risky countries
         repository.save(new AccountProfileJpaEntity(
-                "acc-2001",
+                SeedAccounts.NEW_NORMAL_RISKY_1,
                 true,
                 TrustStatus.NORMAL,
                 Set.of("NG", "PK")
@@ -67,7 +76,7 @@ public class AccountProfileSeeder implements CommandLineRunner {
 
         //new, normal and safe
         repository.save(new AccountProfileJpaEntity(
-                "acc-2002",
+                SeedAccounts.NEW_NORMAL_SAFE_1,
                 true,
                 TrustStatus.NORMAL,
                 Set.of()
@@ -75,7 +84,7 @@ public class AccountProfileSeeder implements CommandLineRunner {
 
         //new, normal, risky countries
         repository.save(new AccountProfileJpaEntity(
-                "acc-2003",
+                SeedAccounts.NEW_NORMAL_RISKY_2,
                 true,
                 TrustStatus.NORMAL,
                 Set.of("NG", "PK", "IR")
@@ -83,7 +92,7 @@ public class AccountProfileSeeder implements CommandLineRunner {
 
         //flagged, risky countries
         repository.save(new AccountProfileJpaEntity(
-                "acc-3001",
+                SeedAccounts.FLAGGED_RISKY_1,
                 false,
                 TrustStatus.FLAGGED,
                 Set.of("RU", "IR")
@@ -91,15 +100,15 @@ public class AccountProfileSeeder implements CommandLineRunner {
 
         //flagged, risky countries
         repository.save(new AccountProfileJpaEntity(
-                "acc-3002",
+                SeedAccounts.FLAGGED_RISKY_2,
                 false,
                 TrustStatus.FLAGGED,
                 Set.of("RU", "IR", "KP")
         ));
 
-        //flagged
+        //flagged, safe
         repository.save(new AccountProfileJpaEntity(
-                "acc-3003",
+                SeedAccounts.FLAGGED_SAFE_1,
                 false,
                 TrustStatus.FLAGGED,
                 Set.of()
@@ -107,7 +116,7 @@ public class AccountProfileSeeder implements CommandLineRunner {
 
         //new, trusted, safe
         repository.save(new AccountProfileJpaEntity(
-                "acc-4001",
+                SeedAccounts.NEW_TRUSTED_SAFE_1,
                 true,
                 TrustStatus.TRUSTED,
                 Set.of()
@@ -115,7 +124,7 @@ public class AccountProfileSeeder implements CommandLineRunner {
 
         //trusted, risky countries
         repository.save(new AccountProfileJpaEntity(
-                "acc-4002",
+                SeedAccounts.TRUSTED_RISKY_2,
                 false,
                 TrustStatus.TRUSTED,
                 Set.of("RU", "IR")
@@ -123,7 +132,7 @@ public class AccountProfileSeeder implements CommandLineRunner {
 
         //normal, risky countries
         repository.save(new AccountProfileJpaEntity(
-                "acc-5001",
+                SeedAccounts.NORMAL_RISKY_2,
                 false,
                 TrustStatus.NORMAL,
                 Set.of("NG", "PK", "RU", "IR")
