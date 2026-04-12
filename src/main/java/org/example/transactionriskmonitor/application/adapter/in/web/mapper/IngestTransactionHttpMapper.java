@@ -5,6 +5,7 @@ import org.example.transactionriskmonitor.application.adapter.in.web.dto.IngestT
 import org.example.transactionriskmonitor.application.port.in.IngestResult;
 import org.example.transactionriskmonitor.application.port.in.IngestTransactionCommand;
 
+import java.time.Instant;
 import java.util.Collections;
 
 public class IngestTransactionHttpMapper {
@@ -21,6 +22,8 @@ public class IngestTransactionHttpMapper {
     }
 
     public static IngestTransactionHttpResponse toResponse(IngestResult result) {
+        Instant processedAt = Instant.now();
+
         return switch (result) {
 
             case IngestResult.Accepted accepted ->
@@ -29,6 +32,8 @@ public class IngestTransactionHttpMapper {
                         "ACCEPTED",
                         accepted.riskScore().value(),
                         accepted.reasons(),
+                        accepted.occurredAt(),
+                        processedAt,
                         "Transaction accepted"
                 );
 
@@ -38,6 +43,8 @@ public class IngestTransactionHttpMapper {
                         "DUPLICATED",
                         null,
                         Collections.emptySet(),
+                        null,
+                        processedAt,
                         "Transaction already exists"
                 );
         };
